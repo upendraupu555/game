@@ -1,11 +1,11 @@
 {
-    "name": "game",
-    "short_name": "game",
+    "name": "Ultra 2048",
+    "short_name": "Ultra 2048",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Ultra 2048 - A beautiful puzzle game built with Flutter and clean architecture.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

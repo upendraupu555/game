@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/constants/app_constants.dart';
 import '../../core/localization/localization_manager.dart';
-import '../../core/navigation/navigation_service.dart';
 import '../../domain/entities/theme_entity.dart';
 import '../providers/theme_providers.dart';
 
@@ -18,12 +16,6 @@ class ThemeSettingsScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(LocalizationManager.themeSettings(ref)),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.font_download),
-            onPressed: () {
-              NavigationService.pushNamed(AppRoutes.fontSettings);
-            },
-          ),
           TextButton(
             onPressed: () async {
               await ref.read(themeProvider.notifier).resetToDefaults();
@@ -56,7 +48,8 @@ class ThemeSettingsScreen extends ConsumerWidget {
             ],
           ),
         ),
-        data: (themeEntity) => _buildThemeSettings(context, ref, themeEntity, availableColors),
+        data: (themeEntity) =>
+            _buildThemeSettings(context, ref, themeEntity, availableColors),
       ),
     );
   }
@@ -82,17 +75,19 @@ class ThemeSettingsScreen extends ConsumerWidget {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 16),
-                ...ThemeModeEntity.values.map((mode) => RadioListTile<ThemeModeEntity>(
-                      title: Text(mode.displayName),
-                      subtitle: Text(_getThemeModeDescription(mode, ref)),
-                      value: mode,
-                      groupValue: themeEntity.themeMode,
-                      onChanged: (value) {
-                        if (value != null) {
-                          ref.read(themeProvider.notifier).updateThemeMode(value);
-                        }
-                      },
-                    )),
+                ...ThemeModeEntity.values.map(
+                  (mode) => RadioListTile<ThemeModeEntity>(
+                    title: Text(mode.displayName),
+                    subtitle: Text(_getThemeModeDescription(mode, ref)),
+                    value: mode,
+                    groupValue: themeEntity.themeMode,
+                    onChanged: (value) {
+                      if (value != null) {
+                        ref.read(themeProvider.notifier).updateThemeMode(value);
+                      }
+                    },
+                  ),
+                ),
               ],
             ),
           ),
@@ -121,7 +116,9 @@ class ThemeSettingsScreen extends ConsumerWidget {
                   ref,
                   themeEntity.lightPrimaryColor,
                   availableColors,
-                  (color) => ref.read(themeProvider.notifier).updateLightPrimaryColor(color),
+                  (color) => ref
+                      .read(themeProvider.notifier)
+                      .updateLightPrimaryColor(color),
                 ),
               ],
             ),
@@ -151,7 +148,9 @@ class ThemeSettingsScreen extends ConsumerWidget {
                   ref,
                   themeEntity.darkPrimaryColor,
                   availableColors,
-                  (color) => ref.read(themeProvider.notifier).updateDarkPrimaryColor(color),
+                  (color) => ref
+                      .read(themeProvider.notifier)
+                      .updateDarkPrimaryColor(color),
                 ),
               ],
             ),
@@ -210,11 +209,7 @@ class ThemeSettingsScreen extends ConsumerWidget {
               ),
             ),
             child: isSelected
-                ? Icon(
-                    Icons.check,
-                    color: _getContrastColor(color),
-                    size: 24,
-                  )
+                ? Icon(Icons.check, color: _getContrastColor(color), size: 24)
                 : null,
           ),
         );

@@ -6,13 +6,13 @@ class AppConfig {
   // ==================== APP IDENTITY ====================
 
   /// App name displayed throughout the application
-  static const String appName = '2048 Game';
+  static const String appName = 'Ultra 2048';
 
   /// App version
   static const String appVersion = '1.0.0';
 
   /// App description for stores and about pages
-  static const String appDescription = 'A beautiful 2048 puzzle game built with Flutter and clean architecture';
+  static const String appDescription = 'A beautiful Ultra 2048 puzzle game built with Flutter and clean architecture';
 
   /// Company/Developer name
   static const String companyName = 'Game Studio';

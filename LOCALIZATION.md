@@ -75,11 +75,11 @@ Text(LocalizationManager.startGame(context))
 ### Available String Categories
 
 #### App Information
-- `appTitle(context)` - "2048 Game"
+- `appTitle(context)` - "Ultra 2048"
 - `appVersion(context)` - "1.0.0"
 
 #### Game Content
-- `welcomeMessage(context)` - "Welcome to 2048!"
+- `welcomeMessage(context)` - "Welcome to Ultra 2048!"
 - `startGame(context)` - "Start Game"
 - `gameComingSoon(context)` - "Game coming soon!"
 

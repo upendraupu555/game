@@ -33,11 +33,11 @@ class AppConfig {
   static const String appName = 'Your Amazing App';
   static const String companyName = 'Your Company';
   static const String bundleId = 'com.yourcompany.yourapp';
-  
+
   // Customize brand colors
   static const int primaryLightColor = 0x1976D2; // Your brand blue
   static const int primaryDarkColor = 0x0D47A1;  // Darker variant
-  
+
   // Enable/disable features
   static const bool enableGameScreen = false;
   static const bool enableAboutScreen = true;
@@ -60,9 +60,9 @@ flutter run
 
 ### App Identity
 ```dart
-static const String appName = 'Your App Name';
+static const String appName = 'Ultra 2048';
 static const String appVersion = '1.0.0';
-static const String appDescription = 'Your app description';
+static const String appDescription = 'A beautiful Ultra 2048 puzzle game built with Flutter and clean architecture';
 static const String companyName = 'Your Company';
 static const String bundleId = 'com.yourcompany.yourapp';
 ```
@@ -199,7 +199,7 @@ The about screen automatically uses your `AppConfig` values, but you can customi
 
 ### Clean Architecture
 - **Domain Layer**: Business logic and entities
-- **Data Layer**: Data sources and repositories  
+- **Data Layer**: Data sources and repositories
 - **Presentation Layer**: UI components and state management
 
 ### Modular Design
@@ -219,7 +219,7 @@ Update `android/app/build.gradle`:
 ```gradle
 android {
     namespace = "com.yourcompany.yourapp"
-    
+
     defaultConfig {
         applicationId = "com.yourcompany.yourapp"
         versionName = "1.0.0"
