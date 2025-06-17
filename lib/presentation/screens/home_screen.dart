@@ -9,8 +9,9 @@ import '../providers/game_providers.dart';
 import '../providers/payment_providers.dart';
 import '../providers/user_providers.dart';
 import '../../domain/entities/game_entity.dart';
-import '../widgets/statistics_dialog.dart';
+
 import '../widgets/payment_dialog.dart';
+import '../widgets/hero_section_widget.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -98,77 +99,68 @@ class HomeScreen extends ConsumerWidget {
     int bestScore,
   ) {
     return SafeArea(
-      child: CustomScrollView(
-        slivers: [
-          // Header
-          SliverToBoxAdapter(
-            child: _buildFloatingHeader(
-              context,
-              ref,
-              currentPrimaryColor,
-              currentFontFamily,
-            ),
-          ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppConstants.paddingLarge,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: AppConstants.paddingSmall),
 
-          // Main content
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppConstants.paddingLarge,
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: AppConstants.paddingSmall),
+                    // Hero section with logo and title
+                    HeroSectionWidget(
+                      primaryColor: currentPrimaryColor,
+                      fontFamily: currentFontFamily,
+                      showTagline: true,
+                    ),
 
-                  // Hero section with logo and title
-                  _buildHeroSection(
-                    context,
-                    ref,
-                    currentPrimaryColor,
-                    currentFontFamily,
-                  ),
+                    const SizedBox(height: AppConstants.paddingLarge),
 
-                  const SizedBox(height: AppConstants.paddingLarge),
+                    // Stats card
+                    if (bestScore > 0) ...[
+                      _buildStatsCard(
+                        context,
+                        ref,
+                        bestScore,
+                        currentPrimaryColor,
+                        currentFontFamily,
+                      ),
+                      const SizedBox(height: AppConstants.paddingMedium),
+                    ],
 
-                  // Stats card
-                  if (bestScore > 0) ...[
-                    _buildStatsCard(
+                    // Action cards grid
+                    _buildActionCardsGrid(
                       context,
                       ref,
-                      bestScore,
+                      hasResumableGame,
+                      resumableGameInfo,
                       currentPrimaryColor,
                       currentFontFamily,
                     ),
+
                     const SizedBox(height: AppConstants.paddingMedium),
+
+                    // Quick actions row
+                    _buildQuickActionsRow(
+                      context,
+                      ref,
+                      currentPrimaryColor,
+                      currentFontFamily,
+                    ),
+
+                    const SizedBox(height: AppConstants.paddingLarge),
                   ],
-
-                  // Action cards grid
-                  _buildActionCardsGrid(
-                    context,
-                    ref,
-                    hasResumableGame,
-                    resumableGameInfo,
-                    currentPrimaryColor,
-                    currentFontFamily,
-                  ),
-
-                  const SizedBox(height: AppConstants.paddingMedium),
-
-                  // Quick actions row
-                  _buildQuickActionsRow(
-                    context,
-                    ref,
-                    currentPrimaryColor,
-                    currentFontFamily,
-                  ),
-
-                  const SizedBox(height: AppConstants.paddingLarge),
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -456,9 +448,9 @@ class HomeScreen extends ConsumerWidget {
         if (hasResumableGame && resumableGameInfo != null) ...[
           _buildActionCard(
             context: context,
-            title: 'Continue Game',
+            title: LocalizationManager.continueGame(ref),
             subtitle:
-                'Score: ${AppConstants.formatScore(resumableGameInfo.score)}',
+                '${LocalizationManager.scoreLabel(ref)}: ${AppConstants.formatScore(resumableGameInfo.score)}',
             icon: Icons.play_arrow,
             color: Colors.green,
             onTap: () {
@@ -473,10 +465,12 @@ class HomeScreen extends ConsumerWidget {
         // New Game Card
         _buildActionCard(
           context: context,
-          title: hasResumableGame ? 'New Game' : 'Start Playing',
+          title: hasResumableGame
+              ? LocalizationManager.newGame(ref)
+              : LocalizationManager.startPlaying(ref),
           subtitle: hasResumableGame
-              ? 'Start fresh adventure'
-              : 'Begin your puzzle journey',
+              ? LocalizationManager.startFreshAdventure(ref)
+              : LocalizationManager.beginPuzzleJourney(ref),
           icon: hasResumableGame ? Icons.refresh : Icons.play_circle_filled,
           color: primaryColor,
           onTap: () async {
@@ -597,7 +591,7 @@ class HomeScreen extends ConsumerWidget {
     Color primaryColor,
     String fontFamily,
   ) {
-    final areAdsRemoved = ref.watch(areAdsRemovedProvider);
+    // final areAdsRemoved = ref.watch(areAdsRemovedProvider); // Temporarily unused
 
     return Column(
       children: [
@@ -629,7 +623,11 @@ class HomeScreen extends ConsumerWidget {
                 icon: Icons.bar_chart,
                 label: LocalizationManager.statistics(ref),
                 onTap: () {
-                  _showStatisticsDialog(context, ref);
+                  // Navigate to leaderboard screen with statistics tab selected
+                  NavigationService.pushNamed(
+                    AppRoutes.leaderboard,
+                    arguments: {'initialTab': 1}, // Statistics tab index
+                  );
                 },
                 primaryColor: primaryColor,
                 fontFamily: fontFamily,
@@ -638,11 +636,51 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
 
-        // Second row: Remove Ads button (only if ads are not removed)
-        if (!areAdsRemoved) ...[
-          const SizedBox(height: AppConstants.paddingMedium),
-          _buildRemoveAdsButton(context, ref, primaryColor, fontFamily),
-        ],
+        const SizedBox(height: AppConstants.paddingMedium),
+
+        // Third row: Leaderboard and Settings
+        Row(
+          children: [
+            // Leaderboard Button
+            Expanded(
+              child: _buildQuickActionButton(
+                context: context,
+                ref: ref,
+                icon: Icons.leaderboard,
+                label: LocalizationManager.leaderboard(ref),
+                onTap: () {
+                  NavigationService.pushNamed(AppRoutes.leaderboard);
+                },
+                primaryColor: primaryColor,
+                fontFamily: fontFamily,
+              ),
+            ),
+
+            const SizedBox(width: AppConstants.paddingMedium),
+
+            // Settings Button
+            Expanded(
+              child: _buildQuickActionButton(
+                context: context,
+                ref: ref,
+                icon: Icons.settings,
+                label: LocalizationManager.navSettings(ref),
+                onTap: () {
+                  NavigationService.pushNamed(AppRoutes.settings);
+                },
+                primaryColor: primaryColor,
+                fontFamily: fontFamily,
+              ),
+            ),
+          ],
+        ),
+
+        // Remove Ads button temporarily hidden
+        // TODO: Re-enable when needed
+        // if (!areAdsRemoved) ...[
+        //   const SizedBox(height: AppConstants.paddingMedium),
+        //   _buildRemoveAdsButton(context, ref, primaryColor, fontFamily),
+        // ],
       ],
     );
   }
@@ -941,13 +979,6 @@ class HomeScreen extends ConsumerWidget {
       ),
     );
     return result ?? false;
-  }
-
-  void _showStatisticsDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (context) => const StatisticsDialog(),
-    );
   }
 }
 

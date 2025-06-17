@@ -13,6 +13,7 @@ import 'presentation/providers/font_providers.dart';
 import 'presentation/providers/theme_providers.dart';
 import 'presentation/providers/user_providers.dart';
 import 'presentation/providers/payment_providers.dart';
+import 'presentation/providers/localization_providers.dart';
 import 'presentation/theme/app_theme.dart';
 import 'domain/entities/theme_entity.dart';
 import 'presentation/widgets/interstitial_ad_service.dart';
@@ -60,7 +61,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     super.initState();
 
     // Initialize app services only once
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!_isInitialized) {
         _isInitialized = true;
         final initService = ref.read(appInitializationServiceProvider);
@@ -74,72 +75,93 @@ class _MyAppState extends ConsumerState<MyApp> {
     final themeState = ref.watch(themeProvider);
     final fontState = ref.watch(fontProvider);
 
+    // Initialize localization early to ensure translations are loaded
+    final localizationState = ref.watch(localizationProvider);
+
     // Initialize user system
     ref.watch(userProvider);
 
     // Initialize payment system
     ref.watch(paymentProvider);
 
-    return themeState.when(
-      loading: () => MaterialApp(
-        title: AppConstants.appTitle,
-        home: const Scaffold(body: Center(child: CircularProgressIndicator())),
-      ),
-      error: (error, stack) => MaterialApp(
-        title: AppConstants.appTitle,
-        home: Scaffold(
-          body: Center(
-            child: Text('${AppConstants.errorLoadingTheme}: $error'),
-          ),
-        ),
-      ),
-      data: (themeEntity) {
-        return fontState.when(
+    return localizationState.when(
+      data: (data) {
+        return themeState.when(
           loading: () => MaterialApp(
             title: AppConstants.appTitle,
-            theme: AppTheme.lightTheme(
-              themeEntity.lightPrimaryColor.toFlutterColor(),
+            home: const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
             ),
-            darkTheme: AppTheme.darkTheme(
-              themeEntity.darkPrimaryColor.toFlutterColor(),
-            ),
-            themeMode: _getThemeMode(themeEntity.themeMode),
-            navigatorKey: NavigationService.navigatorKey,
-            onGenerateRoute: NavigationService.generateRoute,
-            initialRoute: AppRoutes.home,
           ),
           error: (error, stack) => MaterialApp(
             title: AppConstants.appTitle,
-            theme: AppTheme.lightTheme(
-              themeEntity.lightPrimaryColor.toFlutterColor(),
-            ),
-            darkTheme: AppTheme.darkTheme(
-              themeEntity.darkPrimaryColor.toFlutterColor(),
-            ),
-            themeMode: _getThemeMode(themeEntity.themeMode),
-            navigatorKey: NavigationService.navigatorKey,
-            onGenerateRoute: NavigationService.generateRoute,
-            initialRoute: AppRoutes.home,
-          ),
-          data: (fontEntity) => InterstitialAdServiceProvider(
-            child: MaterialApp(
-              title: AppConstants.appTitle,
-              theme: AppTheme.lightTheme(
-                themeEntity.lightPrimaryColor.toFlutterColor(),
-                fontFamily: fontEntity.fontFamily,
+            home: Scaffold(
+              body: Center(
+                child: Text('${AppConstants.errorLoadingTheme}: $error'),
               ),
-              darkTheme: AppTheme.darkTheme(
-                themeEntity.darkPrimaryColor.toFlutterColor(),
-                fontFamily: fontEntity.fontFamily,
-              ),
-              themeMode: _getThemeMode(themeEntity.themeMode),
-              navigatorKey: NavigationService.navigatorKey,
-              onGenerateRoute: NavigationService.generateRoute,
-              initialRoute: AppRoutes.home,
             ),
           ),
+          data: (themeEntity) {
+            return fontState.when(
+              loading: () => MaterialApp(
+                title: AppConstants.appTitle,
+                theme: AppTheme.lightTheme(
+                  themeEntity.lightPrimaryColor.toFlutterColor(),
+                ),
+                darkTheme: AppTheme.darkTheme(
+                  themeEntity.darkPrimaryColor.toFlutterColor(),
+                ),
+                themeMode: _getThemeMode(themeEntity.themeMode),
+                navigatorKey: NavigationService.navigatorKey,
+                onGenerateRoute: NavigationService.generateRoute,
+                initialRoute: AppRoutes.home,
+              ),
+              error: (error, stack) => MaterialApp(
+                title: AppConstants.appTitle,
+                theme: AppTheme.lightTheme(
+                  themeEntity.lightPrimaryColor.toFlutterColor(),
+                ),
+                darkTheme: AppTheme.darkTheme(
+                  themeEntity.darkPrimaryColor.toFlutterColor(),
+                ),
+                themeMode: _getThemeMode(themeEntity.themeMode),
+                navigatorKey: NavigationService.navigatorKey,
+                onGenerateRoute: NavigationService.generateRoute,
+                initialRoute: AppRoutes.home,
+              ),
+              data: (fontEntity) => InterstitialAdServiceProvider(
+                child: MaterialApp(
+                  title: AppConstants.appTitle,
+                  theme: AppTheme.lightTheme(
+                    themeEntity.lightPrimaryColor.toFlutterColor(),
+                    fontFamily: fontEntity.fontFamily,
+                  ),
+                  darkTheme: AppTheme.darkTheme(
+                    themeEntity.darkPrimaryColor.toFlutterColor(),
+                    fontFamily: fontEntity.fontFamily,
+                  ),
+                  themeMode: _getThemeMode(themeEntity.themeMode),
+                  navigatorKey: NavigationService.navigatorKey,
+                  onGenerateRoute: NavigationService.generateRoute,
+                  initialRoute: AppRoutes.home,
+                ),
+              ),
+            );
+          },
         );
       },
+      error: (error, stackTrace) => MaterialApp(
+        title: AppConstants.appTitle,
+        home: Scaffold(
+          body: Center(
+            child: Text('${AppConstants.errorLoadingLocalization}: $error'),
+          ),
+        ),
+      ),
+      loading: () => MaterialApp(
+        title: AppConstants.appTitle,
+        home: Scaffold(body: Center(child: CircularProgressIndicator())),
+      ),
     );
   }
 

@@ -1,5 +1,6 @@
 import '../entities/game_entity.dart';
 import '../entities/tile_entity.dart';
+import '../entities/powerup_entity.dart';
 import '../repositories/game_repository.dart';
 import '../../core/logging/app_logger.dart';
 import 'powerup_usecases.dart';
@@ -74,6 +75,14 @@ class MoveTilesUseCase {
       return currentState.copyWith(isGameOver: isGameOver, hasWon: hasWon);
     }
 
+    // Store current state as previous state for undo functionality
+    // Create a clean copy without the previous state to avoid deep nesting
+    final previousStateForUndo = currentState.copyWith(
+      previousState:
+          null, // Clear any existing previous state to prevent memory issues
+      canUndo: false, // Reset undo flag in the stored state
+    );
+
     // Process powerup effects after move
     var stateAfterPowerupEffects = _processPowerupEffectsUseCase.execute(
       newState,
@@ -91,11 +100,27 @@ class MoveTilesUseCase {
 
     // Check for powerup awards based on new score
     final awardedPowerups = _checkPowerupAwardUseCase.execute(stateWithNewTile);
+    final successfullyAddedPowerups = <PowerupType>[];
+    final failedPowerups = <(PowerupType, AddPowerupResult)>[];
+
     for (final powerupType in awardedPowerups) {
-      stateWithNewTile = _addPowerupUseCase.execute(
+      final (newState, result) = _addPowerupUseCase.execute(
         stateWithNewTile,
         powerupType,
       );
+
+      if (result == AddPowerupResult.success) {
+        stateWithNewTile = newState;
+        successfullyAddedPowerups.add(powerupType);
+      } else {
+        // Store failed powerups for potential UI handling
+        failedPowerups.add((powerupType, result));
+        AppLogger.info(
+          '📦 Powerup earning deferred due to inventory constraints',
+          tag: 'MoveTilesUseCase',
+          data: {'powerupType': powerupType.name, 'result': result.name},
+        );
+      }
     }
 
     // Check game over condition AFTER adding the random tile
@@ -115,10 +140,12 @@ class MoveTilesUseCase {
       },
     );
 
-    // Update the state with final game over and win conditions
+    // Update the state with final game over and win conditions, and add previous state for undo
     stateWithNewTile = stateWithNewTile.copyWith(
       isGameOver: isGameOver,
       hasWon: hasWon,
+      previousState: previousStateForUndo,
+      canUndo: true, // Enable undo since we have a previous state
     );
 
     // Update best score if needed
@@ -195,6 +222,17 @@ class SaveGameStateUseCase {
     if (gameState.score > gameState.bestScore) {
       await _repository.saveBestScore(gameState.score);
     }
+  }
+}
+
+/// Use case for clearing saved game state
+class ClearGameStateUseCase {
+  final GameRepository _repository;
+
+  ClearGameStateUseCase(this._repository);
+
+  Future<void> execute() async {
+    await _repository.clearGameState();
   }
 }
 

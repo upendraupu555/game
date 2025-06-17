@@ -72,9 +72,15 @@ class _SimpleGameBoardState extends ConsumerState<SimpleGameBoard> {
           ),
         ),
 
-        // Selection mode indicators - positioned relative to the game board
+        // Selection mode indicators - positioned to overlay the entire game board
         if (isInSelectionMode)
-          Positioned.fill(child: SelectionModeIndicators(boardSize: 5)),
+          Positioned(
+            left: 8, // Match container padding
+            right: 8, // Match container padding
+            top: 8, // Match container padding
+            bottom: 8, // Match container padding
+            child: SelectionModeIndicators(boardSize: 5),
+          ),
       ],
     );
   }
@@ -128,17 +134,7 @@ class _SimpleGameBoardState extends ConsumerState<SimpleGameBoard> {
       );
     }
 
-    // Wrap with selection highlight if in selection mode
-    if (isInSelectionMode) {
-      tileWidget = TileSelectionHighlight(
-        row: row,
-        col: col,
-        hasTile: tile != null,
-        child: tileWidget,
-      );
-    }
-
-    // Always add tap detection for selection mode (works for both empty and filled tiles)
+    // Add tap detection for selection mode (works for both empty and filled tiles)
     if (isInSelectionMode) {
       tileWidget = GestureDetector(
         onTap: () {

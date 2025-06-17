@@ -12,26 +12,28 @@ class AppConfig {
   static const String appVersion = '1.0.0';
 
   /// App description for stores and about pages
-  static const String appDescription = 'A beautiful Ultra 2048 puzzle game built with Flutter and clean architecture';
+  static const String appDescription =
+      'A beautiful Ultra 2048 puzzle game built with Flutter and clean architecture';
 
   /// Company/Developer name
   static const String companyName = 'Game Studio';
 
   /// App bundle identifier (should be unique)
-  static const String bundleId = 'com.gamestudio.game2048';
+  static const String bundleId = 'com.ultra2048';
 
   /// Copyright notice
-  static const String copyright = 'Copyright © 2025 Game Studio. All rights reserved.';
+  static const String copyright =
+      'Copyright © 2025 Devisetti Upendra. All rights reserved.';
 
   // ==================== BRANDING ====================
 
   /// Primary brand colors (hex values without 0xFF prefix)
   static const int primaryLightColor = 0xD00000; // Crimson Red
-  static const int primaryDarkColor = 0x084887;  // Ocean Blue
+  static const int primaryDarkColor = 0x084887; // Ocean Blue
 
   /// Secondary brand colors
   static const int secondaryLightColor = 0xF44174; // Rose Pink
-  static const int secondaryDarkColor = 0x0B5D1E;  // Forest Green
+  static const int secondaryDarkColor = 0x0B5D1E; // Forest Green
 
   /// Accent colors
   static const int accentColor = 0xF58A07; // Sunset Orange
@@ -74,12 +76,30 @@ class AppConfig {
   /// Default language
   static const String defaultLanguage = 'en';
 
-  /// Supported languages (currently English only, more can be added later)
-  static const List<String> supportedLanguages = ['en'];
+  /// Supported languages - comprehensive multi-language support
+  static const List<String> supportedLanguages = [
+    'en', // English
+    'te', // Telugu
+    'hi', // Hindi
+    'zh', // Chinese Simplified
+    'ja', // Japanese
+    'ko', // Korean
+    'es', // Spanish
+    'fr', // French
+    'ar', // Arabic
+  ];
 
   /// Language display names
   static const Map<String, String> languageDisplayNames = {
     'en': 'English',
+    'te': 'తెలుగు', // Telugu
+    'hi': 'हिन्दी', // Hindi
+    'zh': '简体中文', // Chinese Simplified
+    'ja': '日本語', // Japanese
+    'ko': '한국어', // Korean
+    'es': 'Español', // Spanish
+    'fr': 'Français', // French
+    'ar': 'العربية', // Arabic
   };
 
   // ==================== FEATURES ====================
@@ -87,12 +107,14 @@ class AppConfig {
   /// Enable/disable specific features
   static const bool enableThemeCustomization = true;
   static const bool enableFontCustomization = true;
-  static const bool enableLanguageSelection = false; // Disabled - English only for now
+  static const bool enableLanguageSelection =
+      true; // Enabled - Multi-language support
   static const bool enableDarkMode = true;
   static const bool enableSystemTheme = true;
 
   /// Feature-specific settings
-  static const bool allowCustomColors = false; // Set to true to allow color picker
+  static const bool allowCustomColors =
+      false; // Set to true to allow color picker
   static const bool showAdvancedSettings = false;
   static const bool enableAnalytics = false;
   static const bool enableCrashReporting = false;
@@ -243,7 +265,8 @@ class AppConfig {
   /// Validate configuration
   static bool validateConfig() {
     // Validate app name
-    if (appName.length < minAppNameLength || appName.length > maxAppNameLength) {
+    if (appName.length < minAppNameLength ||
+        appName.length > maxAppNameLength) {
       return false;
     }
 
@@ -265,7 +288,8 @@ class AppConfig {
     }
 
     // Validate languages
-    if (supportedLanguages.isEmpty || !supportedLanguages.contains(defaultLanguage)) {
+    if (supportedLanguages.isEmpty ||
+        !supportedLanguages.contains(defaultLanguage)) {
       return false;
     }
 

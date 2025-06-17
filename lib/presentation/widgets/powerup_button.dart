@@ -34,25 +34,19 @@ class _PowerupButtonState extends ConsumerState<PowerupButton>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: Duration(milliseconds: AppConstants.powerupActivationAnimationDuration),
+      duration: Duration(
+        milliseconds: AppConstants.powerupActivationAnimationDuration,
+      ),
       vsync: this,
     );
 
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.1,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.elasticOut,
-    ));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.elasticOut),
+    );
 
-    _glowAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _glowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -62,10 +56,8 @@ class _PowerupButtonState extends ConsumerState<PowerupButton>
   }
 
   void _handleTap() {
-    print('🔥 PowerupButton._handleTap called - isEnabled: ${widget.isEnabled}, powerupType: ${widget.powerup.type.name}');
-
+    // Debug logging removed for performance
     if (!widget.isEnabled) {
-      print('❌ PowerupButton tap blocked - button not enabled');
       return;
     }
 
@@ -73,7 +65,6 @@ class _PowerupButtonState extends ConsumerState<PowerupButton>
       _animationController.reverse();
     });
 
-    print('✅ PowerupButton calling onTap callback');
     widget.onTap();
   }
 
@@ -81,9 +72,9 @@ class _PowerupButtonState extends ConsumerState<PowerupButton>
     switch (widget.powerup.type) {
       case PowerupType.tileFreeze:
         return const Color(0xFF2196F3); // Blue
-      case PowerupType.mergeBoost:
+      case PowerupType.undoMove:
         return const Color(0xFF9C27B0); // Purple
-      case PowerupType.doubleMerge:
+      case PowerupType.shuffleBoard:
         return const Color(0xFFFFD700); // Gold
       case PowerupType.tileDestroyer:
         return const Color(0xFFF44336); // Red
@@ -93,10 +84,6 @@ class _PowerupButtonState extends ConsumerState<PowerupButton>
         return const Color(0xFFFF9800); // Orange
       case PowerupType.columnClear:
         return const Color(0xFFFF5722); // Deep Orange
-      case PowerupType.undoMove:
-        return const Color(0xFF795548); // Brown
-      case PowerupType.shuffleBoard:
-        return const Color(0xFF607D8B); // Blue Grey
       case PowerupType.blockerShield:
         return const Color(0xFF8BC34A); // Light Green
       case PowerupType.tileShrink:
@@ -125,14 +112,14 @@ class _PowerupButtonState extends ConsumerState<PowerupButton>
     final backgroundColor = isCurrentlyActive
         ? powerupColor.withValues(alpha: 0.9)
         : widget.isEnabled
-            ? powerupColor.withValues(alpha: 0.7)
-            : Colors.grey.shade400;
+        ? powerupColor.withValues(alpha: 0.7)
+        : Colors.grey.shade400;
 
     final borderColor = isCurrentlyActive
         ? Colors.white
         : widget.isEnabled
-            ? powerupColor.withValues(alpha: 0.8)
-            : Colors.grey.shade300;
+        ? powerupColor.withValues(alpha: 0.8)
+        : Colors.grey.shade300;
 
     final borderWidth = isCurrentlyActive ? 3.0 : 2.0;
 
@@ -145,20 +132,26 @@ class _PowerupButtonState extends ConsumerState<PowerupButton>
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppConstants.borderRadiusMedium),
+              borderRadius: BorderRadius.circular(
+                AppConstants.borderRadiusMedium,
+              ),
               color: backgroundColor,
               boxShadow: [
                 if (isCurrentlyActive) ...[
                   // Strong glow for active powerups
                   BoxShadow(
-                    color: powerupColor.withValues(alpha: 0.6 * _glowAnimation.value),
+                    color: powerupColor.withValues(
+                      alpha: 0.6 * _glowAnimation.value,
+                    ),
                     blurRadius: 15.0 * _glowAnimation.value,
                     spreadRadius: 3.0 * _glowAnimation.value,
                   ),
                 ] else if (widget.isEnabled) ...[
                   // Subtle glow for available powerups
                   BoxShadow(
-                    color: powerupColor.withValues(alpha: 0.3 * _glowAnimation.value),
+                    color: powerupColor.withValues(
+                      alpha: 0.3 * _glowAnimation.value,
+                    ),
                     blurRadius: 8.0 * _glowAnimation.value,
                     spreadRadius: 2.0 * _glowAnimation.value,
                   ),
@@ -169,19 +162,19 @@ class _PowerupButtonState extends ConsumerState<PowerupButton>
                   offset: const Offset(0, 2),
                 ),
               ],
-              border: Border.all(
-                color: borderColor,
-                width: borderWidth,
-              ),
+              border: Border.all(color: borderColor, width: borderWidth),
             ),
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                borderRadius: BorderRadius.circular(AppConstants.borderRadiusMedium),
+                borderRadius: BorderRadius.circular(
+                  AppConstants.borderRadiusMedium,
+                ),
                 onTap: widget.isEnabled ? _handleTap : null,
                 child: widget.showTooltip
                     ? Tooltip(
-                        message: '${widget.powerup.type.displayName}\n${widget.powerup.type.description}',
+                        message:
+                            '${widget.powerup.type.displayName}\n${widget.powerup.type.description}',
                         preferBelow: false,
                         child: _buildContent(),
                       )
@@ -215,8 +208,8 @@ class _PowerupButtonState extends ConsumerState<PowerupButton>
             decoration: BoxDecoration(
               color: widget.isEnabled
                   ? (isCurrentlyActive
-                      ? Colors.white.withValues(alpha: 1.0)
-                      : Colors.white.withValues(alpha: 0.9))
+                        ? Colors.white.withValues(alpha: 1.0)
+                        : Colors.white.withValues(alpha: 0.9))
                   : Colors.grey.shade300,
               borderRadius: BorderRadius.circular(8),
             ),
@@ -262,18 +255,15 @@ class _PowerupButtonState extends ConsumerState<PowerupButton>
 class ActivePowerupIndicator extends ConsumerWidget {
   final PowerupEntity powerup;
 
-  const ActivePowerupIndicator({
-    super.key,
-    required this.powerup,
-  });
+  const ActivePowerupIndicator({super.key, required this.powerup});
 
   Color _getPowerupColor() {
     switch (powerup.type) {
       case PowerupType.tileFreeze:
         return const Color(0xFF2196F3); // Blue
-      case PowerupType.mergeBoost:
+      case PowerupType.undoMove:
         return const Color(0xFF9C27B0); // Purple
-      case PowerupType.doubleMerge:
+      case PowerupType.shuffleBoard:
         return const Color(0xFFFFD700); // Gold
       case PowerupType.tileDestroyer:
         return const Color(0xFFF44336); // Red
@@ -283,10 +273,6 @@ class ActivePowerupIndicator extends ConsumerWidget {
         return const Color(0xFFFF9800); // Orange
       case PowerupType.columnClear:
         return const Color(0xFFFF5722); // Deep Orange
-      case PowerupType.undoMove:
-        return const Color(0xFF795548); // Brown
-      case PowerupType.shuffleBoard:
-        return const Color(0xFF607D8B); // Blue Grey
       case PowerupType.blockerShield:
         return const Color(0xFF8BC34A); // Light Green
       case PowerupType.tileShrink:
@@ -328,10 +314,7 @@ class ActivePowerupIndicator extends ConsumerWidget {
         children: [
           Text(
             powerup.type.icon,
-            style: const TextStyle(
-              fontSize: 16,
-              color: Colors.white,
-            ),
+            style: const TextStyle(fontSize: 16, color: Colors.white),
           ),
           const SizedBox(width: 4),
           Text(

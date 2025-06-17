@@ -31,10 +31,7 @@ class PowerupEntity {
 
   /// Activate the powerup
   PowerupEntity activate() {
-    return copyWith(
-      isActive: true,
-      activatedAt: DateTime.now(),
-    );
+    return copyWith(isActive: true, activatedAt: DateTime.now());
   }
 
   /// Use one move of the powerup
@@ -51,11 +48,7 @@ class PowerupEntity {
 
   /// Deactivate the powerup
   PowerupEntity deactivate() {
-    return copyWith(
-      isActive: false,
-      isUsed: true,
-      movesRemaining: 0,
-    );
+    return copyWith(isActive: false, isUsed: true, movesRemaining: 0);
   }
 
   /// Create a copy with updated values
@@ -112,16 +105,14 @@ class PowerupEntity {
 enum PowerupType {
   // Primary powerups
   tileFreeze,
-  mergeBoost,
-  doubleMerge,
+  undoMove,
+  shuffleBoard,
   tileDestroyer,
   valueUpgrade,
   rowClear,
   columnClear,
 
   // Secondary powerups
-  undoMove,
-  shuffleBoard,
   blockerShield,
   tileShrink,
   lockTile,
@@ -139,10 +130,10 @@ enum PowerupType {
     switch (this) {
       case PowerupType.tileFreeze:
         return 'Tile Freeze';
-      case PowerupType.mergeBoost:
-        return 'Merge Boost';
-      case PowerupType.doubleMerge:
-        return 'Double Merge';
+      case PowerupType.undoMove:
+        return 'Undo Move';
+      case PowerupType.shuffleBoard:
+        return 'Shuffle Board';
       case PowerupType.tileDestroyer:
         return 'Tile Destroyer';
       case PowerupType.valueUpgrade:
@@ -151,10 +142,6 @@ enum PowerupType {
         return 'Row Clear';
       case PowerupType.columnClear:
         return 'Column Clear';
-      case PowerupType.undoMove:
-        return 'Undo Move';
-      case PowerupType.shuffleBoard:
-        return 'Shuffle Board';
       case PowerupType.blockerShield:
         return 'Blocker Shield';
       case PowerupType.tileShrink:
@@ -179,22 +166,18 @@ enum PowerupType {
     switch (this) {
       case PowerupType.tileFreeze:
         return 'Prevents new tiles from appearing for 5 moves';
-      case PowerupType.mergeBoost:
-        return 'For 3 moves, tiles merge even if they\'re not the same value';
-      case PowerupType.doubleMerge:
-        return 'Next merge creates a tile with 4x value instead of 2x';
-      case PowerupType.tileDestroyer:
-        return 'Tap to select and remove any single tile from the board';
-      case PowerupType.valueUpgrade:
-        return 'Upgrade a selected tile to the next power of 2';
-      case PowerupType.rowClear:
-        return 'Tap any tile to clear its entire row';
-      case PowerupType.columnClear:
-        return 'Tap any tile to clear its entire column';
       case PowerupType.undoMove:
         return 'Revert the last move made';
       case PowerupType.shuffleBoard:
         return 'Randomly rearrange all tiles on the board';
+      case PowerupType.tileDestroyer:
+        return 'Tap to select and remove any single tile from the board';
+      case PowerupType.valueUpgrade:
+        return 'Upgrade all tiles on the board to their next power of 2';
+      case PowerupType.rowClear:
+        return 'Tap any tile to clear its entire row';
+      case PowerupType.columnClear:
+        return 'Tap any tile to clear its entire column';
       case PowerupType.blockerShield:
         return 'Prevent blocker tiles from appearing for 3 moves';
       case PowerupType.tileShrink:
@@ -219,10 +202,10 @@ enum PowerupType {
     switch (this) {
       case PowerupType.tileFreeze:
         return '🧊';
-      case PowerupType.mergeBoost:
-        return '🔄';
-      case PowerupType.doubleMerge:
-        return '✖️';
+      case PowerupType.undoMove:
+        return '↩️';
+      case PowerupType.shuffleBoard:
+        return '🔀';
       case PowerupType.tileDestroyer:
         return '💥';
       case PowerupType.valueUpgrade:
@@ -231,10 +214,6 @@ enum PowerupType {
         return '↔️';
       case PowerupType.columnClear:
         return '↕️';
-      case PowerupType.undoMove:
-        return '↩️';
-      case PowerupType.shuffleBoard:
-        return '🔀';
       case PowerupType.blockerShield:
         return '🛡️';
       case PowerupType.tileShrink:
@@ -259,19 +238,16 @@ enum PowerupType {
     switch (this) {
       case PowerupType.tileFreeze:
         return 5;
-      case PowerupType.mergeBoost:
-        return 3;
       case PowerupType.blockerShield:
         return 3;
       case PowerupType.lockTile:
         return 5;
-      case PowerupType.doubleMerge:
+      case PowerupType.undoMove:
+      case PowerupType.shuffleBoard:
       case PowerupType.tileDestroyer:
       case PowerupType.valueUpgrade:
       case PowerupType.rowClear:
       case PowerupType.columnClear:
-      case PowerupType.undoMove:
-      case PowerupType.shuffleBoard:
       case PowerupType.tileShrink:
       case PowerupType.valueTarget:
       case PowerupType.timeSlow:
@@ -286,8 +262,8 @@ enum PowerupType {
   bool get isPrimary {
     return [
       PowerupType.tileFreeze,
-      PowerupType.mergeBoost,
-      PowerupType.doubleMerge,
+      PowerupType.undoMove,
+      PowerupType.shuffleBoard,
       PowerupType.tileDestroyer,
       PowerupType.valueUpgrade,
       PowerupType.rowClear,
@@ -300,9 +276,9 @@ enum PowerupType {
     switch (this) {
       case PowerupType.tileFreeze:
         return 1000;
-      case PowerupType.mergeBoost:
+      case PowerupType.undoMove:
         return 2500;
-      case PowerupType.doubleMerge:
+      case PowerupType.shuffleBoard:
         return 5000;
       case PowerupType.tileDestroyer:
         return 7500;

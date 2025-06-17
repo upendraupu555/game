@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/config/app_config.dart';
 import '../../core/localization/localization_manager.dart';
 import '../../core/navigation/navigation_service.dart';
 import '../providers/theme_providers.dart';
-import '../providers/font_providers.dart';
-import '../providers/sound_providers.dart';
-import '../../domain/entities/sound_entity.dart';
+// TODO: Temporarily disabled imports for font and sound providers
+// import '../providers/font_providers.dart';
+// import '../providers/sound_providers.dart';
+import '../providers/leaderboard_providers.dart';
+import '../providers/localization_providers.dart';
+// TODO: Temporarily disabled sound entity import
+// import '../../domain/entities/sound_entity.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -14,7 +19,8 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentTheme = ref.watch(currentThemeProvider);
-    final currentFont = ref.watch(currentFontProvider);
+    // TODO: Temporarily disabled font customization
+    // final currentFont = ref.watch(currentFontProvider);
     final primaryColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
@@ -43,6 +49,10 @@ class SettingsScreen extends ConsumerWidget {
               },
               primaryColor: primaryColor,
             ),
+
+            // TODO: Temporarily disabled font and sound settings
+            // Uncomment these sections to re-enable font and sound customization
+            /*
             const SizedBox(height: AppConstants.paddingSmall),
             _buildSettingsCard(
               context: context,
@@ -67,7 +77,19 @@ class SettingsScreen extends ConsumerWidget {
               },
               primaryColor: primaryColor,
             ),
-
+            */
+            // const SizedBox(height: AppConstants.paddingSmall),
+            // _buildSettingsCard(
+            //   context: context,
+            //   ref: ref,
+            //   title: LocalizationManager.translate(ref, 'language_settings'),
+            //   subtitle: _getLanguageSubtitle(ref),
+            //   icon: Icons.language,
+            //   onTap: () {
+            //     NavigationService.pushNamed(AppRoutes.languageSettings);
+            //   },
+            //   primaryColor: primaryColor,
+            // ),
             const SizedBox(height: AppConstants.paddingLarge),
 
             // Profile Section
@@ -95,7 +117,10 @@ class SettingsScreen extends ConsumerWidget {
               subtitle: 'View detailed game performance',
               icon: Icons.analytics,
               onTap: () {
-                _showComingSoonDialog(context, ref);
+                NavigationService.pushNamed(
+                  AppRoutes.leaderboard,
+                  arguments: {'initialTab': 1}, // Statistics tab index
+                );
               },
               primaryColor: primaryColor,
             ),
@@ -120,25 +145,13 @@ class SettingsScreen extends ConsumerWidget {
             _buildSettingsCard(
               context: context,
               ref: ref,
-              title: 'Privacy Policy',
-              subtitle: 'How we handle your data',
-              icon: Icons.privacy_tip,
+              title: LocalizationManager.clearLeaderboard(ref),
+              subtitle: 'Clear all leaderboard entries',
+              icon: Icons.leaderboard_outlined,
               onTap: () {
-                _showComingSoonDialog(context, ref);
+                _showClearLeaderboardDialog(context, ref);
               },
-              primaryColor: primaryColor,
-            ),
-            const SizedBox(height: AppConstants.paddingSmall),
-            _buildSettingsCard(
-              context: context,
-              ref: ref,
-              title: 'Contact Support',
-              subtitle: 'Get help and send feedback',
-              icon: Icons.support_agent,
-              onTap: () {
-                NavigationService.pushNamed(AppRoutes.feedback);
-              },
-              primaryColor: primaryColor,
+              primaryColor: Colors.orange,
             ),
 
             const SizedBox(height: AppConstants.paddingLarge),
@@ -187,8 +200,8 @@ class SettingsScreen extends ConsumerWidget {
       ),
       child: InkWell(
         onTap: () {
-          // Play button tap sound
-          ref.read(soundPlayerProvider)(SoundEventType.buttonTap);
+          // TODO: Temporarily disabled sound playback
+          // ref.read(soundPlayerProvider)(SoundEventType.buttonTap);
           onTap();
         },
         borderRadius: BorderRadius.circular(AppConstants.borderRadiusMedium),
@@ -262,6 +275,9 @@ class SettingsScreen extends ConsumerWidget {
     return '$themeModeText • Custom colors';
   }
 
+  // TODO: Temporarily disabled font and sound subtitle methods
+  // Uncomment these methods to re-enable font and sound customization
+  /*
   String _getFontSubtitle(dynamic currentFont) {
     if (currentFont == null) return 'Loading...';
 
@@ -282,22 +298,61 @@ class SettingsScreen extends ConsumerWidget {
       },
     );
   }
+  */
 
-  void _showComingSoonDialog(BuildContext context, WidgetRef ref) {
+  void _showClearLeaderboardDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Coming Soon'),
-        content: const Text(
-          'This feature is currently under development and will be available in a future update.',
-        ),
+        title: Text(LocalizationManager.clearLeaderboardConfirmation(ref)),
+        content: Text(LocalizationManager.clearLeaderboardMessage(ref)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: Text(LocalizationManager.cancel(ref)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              try {
+                await ref.read(leaderboardProvider.notifier).clearLeaderboard();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        LocalizationManager.leaderboardCleared(ref),
+                      ),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (error) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to clear leaderboard: $error'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text(LocalizationManager.clearLeaderboard(ref)),
           ),
         ],
       ),
     );
+  }
+
+  String _getLanguageSubtitle(WidgetRef ref) {
+    final currentLocalization = ref.watch(currentLocalizationProvider);
+    if (currentLocalization != null) {
+      final languageName =
+          AppConfig.languageDisplayNames[currentLocalization.locale] ??
+          currentLocalization.language;
+      return languageName;
+    }
+    return 'English'; // Fallback
   }
 }

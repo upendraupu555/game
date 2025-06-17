@@ -167,6 +167,17 @@ class ValidateUserSessionUseCase {
   }
 }
 
+/// Use case for deleting user account
+class DeleteUserAccountUseCase {
+  final UserRepository _repository;
+
+  DeleteUserAccountUseCase(this._repository);
+
+  Future<void> execute() async {
+    await _repository.deleteUserAccount();
+  }
+}
+
 /// Use case for converting guest to authenticated user
 class ConvertGuestToAuthenticatedUseCase {
   final UserRepository _repository;

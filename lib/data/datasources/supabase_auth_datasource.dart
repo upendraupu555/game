@@ -1,5 +1,4 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../core/constants/app_constants.dart';
 import '../../core/logging/app_logger.dart';
 
 /// Supabase authentication data source
@@ -31,6 +30,8 @@ abstract class SupabaseAuthDataSource {
   Future<void> resetPassword(String email);
 
   Future<void> resendEmailConfirmation(String email);
+
+  Future<void> deleteUser();
 
   bool get isAuthenticated;
 }
@@ -200,6 +201,149 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
         tag: 'SupabaseAuth',
         error: error,
       );
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> deleteUser() async {
+    try {
+      final currentUser = _supabase.auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('No authenticated user to delete');
+      }
+
+      AppLogger.info(
+        'Attempting complete user account deletion: ${currentUser.id}',
+        tag: 'SupabaseAuth',
+      );
+
+      // Try complete deletion first (includes auth user deletion)
+      try {
+        final response = await _supabase.rpc('delete_user_account_complete');
+
+        AppLogger.info(
+          'Complete user deletion response: $response',
+          tag: 'SupabaseAuth',
+        );
+
+        if (response != null && response['success'] == true) {
+          AppLogger.info(
+            'User account completely deleted including auth record',
+            tag: 'SupabaseAuth',
+          );
+          return;
+        } else {
+          AppLogger.warning(
+            'Complete deletion failed: ${response?['message']}',
+            tag: 'SupabaseAuth',
+          );
+
+          // Fall back to marking for deletion + admin API
+          await _deleteUserWithAdminAPI(currentUser);
+        }
+      } catch (e) {
+        AppLogger.warning(
+          'Complete deletion function failed: $e',
+          tag: 'SupabaseAuth',
+        );
+
+        // Fall back to marking for deletion + admin API
+        await _deleteUserWithAdminAPI(currentUser);
+      }
+    } catch (error) {
+      AppLogger.error(
+        'User account deletion failed completely',
+        tag: 'SupabaseAuth',
+        error: error,
+      );
+      rethrow;
+    }
+  }
+
+  /// Delete user using admin API approach
+  Future<void> _deleteUserWithAdminAPI(User currentUser) async {
+    AppLogger.info(
+      'Attempting user deletion with admin API approach',
+      tag: 'SupabaseAuth',
+    );
+
+    try {
+      // Step 1: Mark user for deletion (deletes app data)
+      final markResponse = await _supabase.rpc('mark_user_for_deletion');
+
+      if (markResponse == null || markResponse['success'] != true) {
+        throw Exception(
+          'Failed to mark user for deletion: ${markResponse?['message']}',
+        );
+      }
+
+      AppLogger.info(
+        'User marked for deletion, app data removed',
+        tag: 'SupabaseAuth',
+      );
+
+      // Step 2: Use Supabase Admin API to delete auth user
+      try {
+        await _deleteAuthUserViaAPI(currentUser.id);
+
+        AppLogger.info(
+          'Auth user deleted successfully via admin API',
+          tag: 'SupabaseAuth',
+        );
+      } catch (adminError) {
+        AppLogger.error(
+          'Admin API deletion failed, user data deleted but auth record remains',
+          tag: 'SupabaseAuth',
+          error: adminError,
+        );
+
+        // Even if admin API fails, app data is deleted
+        // The user will need manual cleanup of auth record
+        throw Exception(
+          'Account data deleted but authentication record could not be removed. '
+          'Please contact support for complete account deletion.',
+        );
+      }
+    } catch (error) {
+      AppLogger.error(
+        'Admin API deletion approach failed',
+        tag: 'SupabaseAuth',
+        error: error,
+      );
+      rethrow;
+    }
+  }
+
+  /// Delete auth user via Supabase Admin API
+  Future<void> _deleteAuthUserViaAPI(String userId) async {
+    try {
+      // Note: This requires a server-side endpoint or admin privileges
+      // For now, we'll use the client library's admin methods if available
+
+      // Option 1: If you have admin privileges configured
+      await _supabase.auth.admin.deleteUser(userId);
+
+      AppLogger.info(
+        'Successfully deleted auth user via admin API',
+        tag: 'SupabaseAuth',
+      );
+    } catch (error) {
+      AppLogger.error(
+        'Failed to delete auth user via admin API',
+        tag: 'SupabaseAuth',
+        error: error,
+      );
+
+      // If admin API is not available, we need to handle this differently
+      if (error.toString().contains('admin') ||
+          error.toString().contains('permission')) {
+        throw Exception(
+          'Admin privileges required for complete account deletion. '
+          'App data has been deleted but authentication record remains.',
+        );
+      }
+
       rethrow;
     }
   }

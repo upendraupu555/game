@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/game_entity.dart';
 import '../../domain/entities/tile_entity.dart';
@@ -9,11 +10,14 @@ import '../../domain/usecases/interactive_powerup_usecases.dart';
 import '../../data/datasources/game_local_datasource.dart';
 import '../../data/repositories/game_repository_impl.dart';
 import '../../core/logging/app_logger.dart';
-import '../../core/utils/performance_utils.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/navigation/navigation_service.dart';
 import 'theme_providers.dart';
 import 'powerup_providers.dart';
 import 'powerup_selection_providers.dart';
+import 'leaderboard_providers.dart';
+import 'comprehensive_statistics_providers.dart';
+import '../widgets/powerup_inventory_dialog.dart';
 
 // Data source providers
 final gameLocalDataSourceProvider = Provider<GameLocalDataSource>((ref) {
@@ -46,6 +50,11 @@ final loadGameStateUseCaseProvider = Provider<LoadGameStateUseCase>((ref) {
 final saveGameStateUseCaseProvider = Provider<SaveGameStateUseCase>((ref) {
   final repository = ref.watch(gameRepositoryProvider);
   return SaveGameStateUseCase(repository);
+});
+
+final clearGameStateUseCaseProvider = Provider<ClearGameStateUseCase>((ref) {
+  final repository = ref.watch(gameRepositoryProvider);
+  return ClearGameStateUseCase(repository);
 });
 
 final checkGameOverUseCaseProvider = Provider<CheckGameOverUseCase>((ref) {
@@ -99,6 +108,22 @@ final executeColumnClearUseCaseProvider = Provider<ExecuteColumnClearUseCase>((
   return ExecuteColumnClearUseCase();
 });
 
+final executeValueUpgradeUseCaseProvider = Provider<ExecuteValueUpgradeUseCase>(
+  (ref) {
+    return ExecuteValueUpgradeUseCase();
+  },
+);
+
+final executeUndoMoveUseCaseProvider = Provider<ExecuteUndoMoveUseCase>((ref) {
+  return ExecuteUndoMoveUseCase();
+});
+
+final executeShuffleBoardUseCaseProvider = Provider<ExecuteShuffleBoardUseCase>(
+  (ref) {
+    return ExecuteShuffleBoardUseCase();
+  },
+);
+
 final executeInteractivePowerupUseCaseProvider =
     Provider<ExecuteInteractivePowerupUseCase>((ref) {
       return ExecuteInteractivePowerupUseCase(
@@ -113,6 +138,7 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
   final Ref _ref;
   DateTime? _gameStartTime;
   DateTime? _pauseStartTime;
+  bool _gameCompletionProcessed = false;
 
   GameNotifier(this._ref) : super(const AsyncValue.loading()) {
     _loadGame();
@@ -146,6 +172,7 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
       final initializeUseCase = _ref.read(initializeGameUseCaseProvider);
       final newGame = await initializeUseCase.execute();
       _gameStartTime = DateTime.now();
+      _gameCompletionProcessed = false; // Reset completion flag for new game
       state = AsyncValue.data(newGame);
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
@@ -178,7 +205,7 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
       final moveSuccessful =
           !identical(newState, currentState) && newState != currentState;
 
-      // Check for newly awarded powerups
+      // Check for newly awarded powerups and handle inventory management
       if (moveSuccessful) {
         final oldPowerupTypes = currentState.availablePowerups
             .map((p) => p.type)
@@ -188,18 +215,54 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
             .toSet();
         final awardedPowerups = newPowerupTypes.difference(oldPowerupTypes);
 
-        // Trigger notifications for new powerups
+        // Handle each awarded powerup with proper inventory management
         for (final powerupType in awardedPowerups) {
+          // Powerup was successfully added - show notification
           _ref
               .read(powerupNotificationProvider.notifier)
               .showNewPowerup(powerupType);
+        }
+
+        // Check if any powerups were earned but couldn't be added due to full inventory
+        // This requires checking the score-based powerup earning logic
+        final checkPowerupAwardUseCase = _ref.read(
+          checkPowerupAwardUseCaseProvider,
+        );
+        final potentialPowerups = checkPowerupAwardUseCase.execute(newState);
+
+        // Find powerups that should have been earned but weren't added and haven't been offered yet
+        final missedPowerups = potentialPowerups.where((powerupType) {
+          return !newState.availablePowerups.any(
+                (p) => p.type == powerupType,
+              ) &&
+              !currentState.availablePowerups.any(
+                (p) => p.type == powerupType,
+              ) &&
+              !newState.isPowerupOffered(
+                powerupType,
+              ); // Check if already offered
+        }).toList();
+
+        // Handle missed powerups due to inventory being full
+        GameEntity finalState = newState;
+        for (final powerupType in missedPowerups) {
+          // Mark powerup as offered to prevent duplicate dialogs
+          finalState = finalState.markPowerupAsOffered(powerupType);
+
+          // Show inventory management dialog for each missed powerup
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            final context = NavigationService.navigatorKey.currentContext;
+            if (context != null) {
+              await handlePowerupEarning(context, powerupType);
+            }
+          });
         }
 
         // Check for expired powerups
         final oldActivePowerups = currentState.activePowerups
             .map((p) => p.type)
             .toSet();
-        final newActivePowerups = newState.activePowerups
+        final newActivePowerups = finalState.activePowerups
             .map((p) => p.type)
             .toSet();
         final expiredPowerups = oldActivePowerups.difference(newActivePowerups);
@@ -210,21 +273,27 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
               .read(powerupNotificationProvider.notifier)
               .showExpiredPowerup(powerupType);
         }
+
+        // Use the updated state with offered powerups marked
+        state = AsyncValue.data(finalState);
+      } else {
+        // No move was successful, just use the original state
+        state = AsyncValue.data(newState);
       }
 
-      state = AsyncValue.data(newState);
-
-      // Update statistics if game is over
-      if (newState.isGameOver || newState.hasWon) {
+      // Update statistics if game is over (use the current state value)
+      final currentGameState = state.value;
+      if (currentGameState != null &&
+          (currentGameState.isGameOver || currentGameState.hasWon)) {
         AppLogger.gameState(
-          newState.isGameOver ? 'GAME_OVER' : 'GAME_WON',
-          score: newState.score,
-          bestScore: newState.bestScore,
-          tilesCount: newState.allTiles.length,
-          isGameOver: newState.isGameOver,
-          hasWon: newState.hasWon,
+          currentGameState.isGameOver ? 'GAME_OVER' : 'GAME_WON',
+          score: currentGameState.score,
+          bestScore: currentGameState.bestScore,
+          tilesCount: currentGameState.allTiles.length,
+          isGameOver: currentGameState.isGameOver,
+          hasWon: currentGameState.hasWon,
         );
-        await _updateGameStatistics(newState);
+        await _updateGameStatistics(currentGameState);
       }
     } catch (error, stackTrace) {
       AppLogger.error(
@@ -239,16 +308,14 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
 
   Future<void> restart() async {
     try {
+      // No need to update statistics here - they're updated when game ends naturally
       final currentState = state.value;
-      if (currentState != null) {
-        await _updateGameStatistics(currentState);
-      }
-
       final restartUseCase = _ref.read(restartGameUseCaseProvider);
       final newGame = await restartUseCase.execute(
         currentState ?? GameEntity.newGame(),
       );
       _gameStartTime = DateTime.now();
+      _gameCompletionProcessed = false; // Reset completion flag for new game
       state = AsyncValue.data(newGame);
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
@@ -257,11 +324,7 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
 
   Future<void> startTimeAttack(int timeLimitSeconds) async {
     try {
-      final currentState = state.value;
-      if (currentState != null) {
-        await _updateGameStatistics(currentState);
-      }
-
+      // No need to update statistics here - they're updated when game ends naturally
       // Create a new time attack game
       final newGame = GameEntity.newTimeAttackGame(timeLimitSeconds);
 
@@ -273,6 +336,7 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
       final timeAttackGame = newGame.copyWith(board: gameWithTiles.board);
 
       _gameStartTime = DateTime.now();
+      _gameCompletionProcessed = false; // Reset completion flag for new game
       state = AsyncValue.data(timeAttackGame);
       await saveGame();
     } catch (error, stackTrace) {
@@ -282,11 +346,7 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
 
   Future<void> startScenicMode() async {
     try {
-      final currentState = state.value;
-      if (currentState != null) {
-        await _updateGameStatistics(currentState);
-      }
-
+      // No need to update statistics here - they're updated when game ends naturally
       // Get a random scenic background
       final randomIndex = (DateTime.now().millisecondsSinceEpoch % 19) + 1;
 
@@ -301,6 +361,7 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
       final scenicGame = newGame.copyWith(board: gameWithTiles.board);
 
       _gameStartTime = DateTime.now();
+      _gameCompletionProcessed = false; // Reset completion flag for new game
       state = AsyncValue.data(scenicGame);
       await saveGame();
     } catch (error, stackTrace) {
@@ -312,15 +373,125 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
     if (_gameStartTime == null) return;
 
     try {
-      final updateStatsUseCase = _ref.read(updateGameStatisticsUseCaseProvider);
       final playTime = DateTime.now().difference(_gameStartTime!);
+      final gameCompleted = gameState.isGameOver || gameState.hasWon;
 
-      await updateStatsUseCase.execute(
-        gameCompleted: gameState.isGameOver || gameState.hasWon,
-        gameWon: gameState.hasWon,
-        finalScore: gameState.score,
-        playTime: playTime,
-      );
+      // Prevent duplicate processing of the same game completion
+      if (gameCompleted && _gameCompletionProcessed) {
+        AppLogger.debug(
+          '🚫 Game completion already processed, skipping duplicate update',
+          tag: 'GameNotifier',
+        );
+        return;
+      }
+
+      // Only update comprehensive statistics to avoid double counting
+      // The comprehensive statistics include all the basic statistics data
+
+      // Add to leaderboard if game is completed
+      if (gameCompleted) {
+        try {
+          final addToLeaderboardUseCase = _ref.read(
+            addGameToLeaderboardUseCaseProvider,
+          );
+          final wasAdded = await addToLeaderboardUseCase.execute(
+            gameState: gameState,
+            gameDuration: playTime,
+          );
+
+          if (wasAdded) {
+            AppLogger.info(
+              '🏆 Game added to leaderboard',
+              tag: 'GameNotifier',
+              data: {'score': gameState.score, 'duration': playTime.inSeconds},
+            );
+
+            // Refresh both leaderboard providers and wait for completion
+            await Future.wait([
+              _ref.read(leaderboardProvider.notifier).refresh(),
+              _ref.read(groupedLeaderboardProvider.notifier).refresh(),
+            ]);
+          }
+        } catch (leaderboardError) {
+          AppLogger.error(
+            'Failed to add game to leaderboard',
+            tag: 'GameNotifier',
+            error: leaderboardError,
+          );
+          // Don't rethrow - leaderboard failure shouldn't break game flow
+        }
+      }
+
+      // Update comprehensive statistics if game is completed
+      if (gameCompleted) {
+        try {
+          final comprehensiveStatsUseCase = _ref.read(
+            updateComprehensiveStatisticsUseCaseProvider,
+          );
+
+          // Determine game mode
+          final gameMode = _determineGameMode(gameState);
+
+          // Get powerups used (if any)
+          final powerupsUsed = <PowerupType>[];
+          // TODO: Track powerups used during the game
+
+          await comprehensiveStatsUseCase.execute(
+            gameState: gameState,
+            gameCompleted: true,
+            gameWon: gameState.hasWon,
+            playTime: playTime,
+            gameMode: gameMode,
+            powerupsUsed: powerupsUsed,
+          );
+
+          // Refresh comprehensive statistics provider and wait for completion
+          await _ref
+              .read(comprehensiveStatisticsNotifierProvider.notifier)
+              .refresh();
+
+          AppLogger.info(
+            '📊 Comprehensive statistics updated',
+            tag: 'GameNotifier',
+            data: {
+              'gameMode': gameMode,
+              'score': gameState.score,
+              'won': gameState.hasWon,
+            },
+          );
+
+          // Mark game completion as processed to prevent duplicates
+          if (gameCompleted) {
+            _gameCompletionProcessed = true;
+
+            // Clear saved game state when game is completed to prevent it from showing as resumable
+            try {
+              final clearGameStateUseCase = _ref.read(
+                clearGameStateUseCaseProvider,
+              );
+              await clearGameStateUseCase.execute();
+              AppLogger.info(
+                '🧹 Cleared saved game state after completion',
+                tag: 'GameNotifier',
+              );
+            } catch (clearError) {
+              AppLogger.error(
+                'Failed to clear game state after completion',
+                tag: 'GameNotifier',
+                error: clearError,
+              );
+              // Don't rethrow - clearing failure shouldn't break game flow
+            }
+          }
+        } catch (statsError) {
+          AppLogger.error(
+            'Failed to update comprehensive statistics',
+            tag: 'GameNotifier',
+            error: statsError,
+          );
+          // Don't rethrow - statistics failure shouldn't break game flow
+        }
+      }
     } catch (error) {
       AppLogger.error(
         'Failed to update statistics',
@@ -347,6 +518,13 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
       final resetUseCase = _ref.read(resetAllDataUseCaseProvider);
       await resetUseCase.execute();
       await _initializeNewGame();
+
+      // Refresh all providers after data reset
+      await Future.wait([
+        _ref.read(leaderboardProvider.notifier).refresh(),
+        _ref.read(groupedLeaderboardProvider.notifier).refresh(),
+        _ref.read(comprehensiveStatisticsNotifierProvider.notifier).refresh(),
+      ]);
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
     }
@@ -649,9 +827,12 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
 
     try {
       final addPowerupUseCase = AddPowerupUseCase();
-      final newState = addPowerupUseCase.execute(currentState, powerupType);
+      final (newState, result) = addPowerupUseCase.execute(
+        currentState,
+        powerupType,
+      );
 
-      if (newState != currentState) {
+      if (result == AddPowerupResult.success) {
         state = AsyncValue.data(newState);
         await saveGame();
 
@@ -678,15 +859,185 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
     }
   }
 
+  /// Handle powerup earning with inventory management
+  Future<void> handlePowerupEarning(
+    BuildContext context,
+    PowerupType newPowerupType,
+  ) async {
+    final currentState = state.value;
+    if (currentState == null) return;
+
+    try {
+      final addPowerupUseCase = AddPowerupUseCase();
+      final (newState, result) = addPowerupUseCase.execute(
+        currentState,
+        newPowerupType,
+      );
+
+      switch (result) {
+        case AddPowerupResult.success:
+          state = AsyncValue.data(newState);
+          await saveGame();
+
+          // Show notification for the new powerup
+          _ref
+              .read(powerupNotificationProvider.notifier)
+              .showNewPowerup(newPowerupType);
+
+          AppLogger.debug(
+            '🎁 Powerup earned and added',
+            tag: 'GameNotifier',
+            data: {
+              'powerupType': newPowerupType.name,
+              'powerupIcon': newPowerupType.icon,
+            },
+          );
+          break;
+
+        case AddPowerupResult.inventoryFull:
+          // Show inventory management dialog
+          await _showInventoryManagementDialog(context, newPowerupType);
+          break;
+
+        case AddPowerupResult.alreadyExists:
+          AppLogger.warning(
+            '🔄 Powerup not added - already exists',
+            tag: 'GameNotifier',
+            data: {'powerupType': newPowerupType.name},
+          );
+          break;
+      }
+    } catch (error) {
+      AppLogger.error(
+        'Failed to handle powerup earning',
+        tag: 'GameNotifier',
+        error: error,
+      );
+    }
+  }
+
+  /// Show inventory management dialog when inventory is full
+  Future<void> _showInventoryManagementDialog(
+    BuildContext context,
+    PowerupType newPowerupType,
+  ) async {
+    final currentState = state.value;
+    if (currentState == null) return;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PowerupInventoryDialog(
+        newPowerupType: newPowerupType,
+        currentPowerups: currentState.availablePowerups,
+        onReplacePowerup: (powerupTypeToReplace) async {
+          await _replacePowerup(powerupTypeToReplace, newPowerupType);
+        },
+        onDiscardNewPowerup: () {
+          // Clear the offered status for this powerup since user chose to discard it
+          final updatedOfferedPowerups = Set<PowerupType>.from(
+            currentState.offeredPowerupTypes,
+          )..remove(newPowerupType);
+          final newState = currentState.copyWith(
+            offeredPowerupTypes: updatedOfferedPowerups,
+          );
+          state = AsyncValue.data(newState);
+          saveGame();
+
+          AppLogger.info(
+            '🗑️ New powerup discarded by user choice',
+            tag: 'GameNotifier',
+            data: {'powerupType': newPowerupType.name},
+          );
+        },
+      ),
+    );
+  }
+
+  /// Replace an existing powerup with a new one
+  Future<void> _replacePowerup(
+    PowerupType powerupTypeToReplace,
+    PowerupType newPowerupType,
+  ) async {
+    final currentState = state.value;
+    if (currentState == null) return;
+
+    try {
+      // Remove the old powerup
+      final updatedPowerups = currentState.availablePowerups
+          .where((p) => p.type != powerupTypeToReplace)
+          .toList();
+
+      // Add the new powerup
+      final newPowerup = PowerupEntity.create(newPowerupType);
+      updatedPowerups.add(newPowerup);
+
+      // Clear the offered status for this powerup since it's now successfully added
+      final updatedOfferedPowerups = Set<PowerupType>.from(
+        currentState.offeredPowerupTypes,
+      )..remove(newPowerupType);
+
+      final newState = currentState.copyWith(
+        availablePowerups: updatedPowerups,
+        offeredPowerupTypes: updatedOfferedPowerups,
+      );
+
+      state = AsyncValue.data(newState);
+      await saveGame();
+
+      // Show notification for the new powerup
+      _ref
+          .read(powerupNotificationProvider.notifier)
+          .showNewPowerup(newPowerupType);
+
+      AppLogger.info(
+        '🔄 Powerup replaced successfully',
+        tag: 'GameNotifier',
+        data: {
+          'replacedPowerup': powerupTypeToReplace.name,
+          'newPowerup': newPowerupType.name,
+        },
+      );
+    } catch (error) {
+      AppLogger.error(
+        'Failed to replace powerup',
+        tag: 'GameNotifier',
+        error: error,
+      );
+    }
+  }
+
+  /// Debug method to test game completion processing
+  Future<void> debugProcessGameCompletion(GameEntity gameState) async {
+    await _updateGameStatistics(gameState);
+  }
+
+  /// Continue playing after winning a game
+  /// This resets the completion flag to allow the continued game to be processed separately
+  Future<void> continueAfterWin() async {
+    _gameCompletionProcessed = false;
+    AppLogger.info(
+      '🔄 Continue after win: Reset completion flag for continued game',
+      tag: 'GameNotifier',
+    );
+  }
+
+  /// Debug method to test continue after win flow
+  Future<void> debugContinueAfterWin() async {
+    await continueAfterWin();
+  }
+
   /// Alternative direct activation method for testing
   Future<void> debugDirectActivatePowerup(PowerupType powerupType) async {
-    print(
-      '🔧 GameNotifier.debugDirectActivatePowerup called with powerupType: ${powerupType.name}',
+    AppLogger.debug(
+      'GameNotifier.debugDirectActivatePowerup called',
+      tag: 'GameNotifier',
+      data: {'powerupType': powerupType.name},
     );
 
     final currentState = state.value;
     if (currentState == null) {
-      print('❌ No current state');
+      AppLogger.warning('No current state available', tag: 'GameNotifier');
       return;
     }
 
@@ -696,13 +1047,19 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
         (p) => p.type == powerupType,
       );
       if (powerupIndex == -1) {
-        print('❌ Powerup not found in available list');
+        AppLogger.warning(
+          'Powerup not found in available list',
+          tag: 'GameNotifier',
+          data: {'powerupType': powerupType.name},
+        );
         return;
       }
 
       final powerup = currentState.availablePowerups[powerupIndex];
-      print(
-        '✅ Found powerup: ${powerup.type.name}, creating activated version...',
+      AppLogger.debug(
+        'Found powerup, creating activated version',
+        tag: 'GameNotifier',
+        data: {'powerupType': powerup.type.name},
       );
 
       // Create activated powerup
@@ -725,8 +1082,13 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
         usedPowerupTypes: newUsedPowerupTypes,
       );
 
-      print(
-        '📊 Direct activation result: availablePowerups=${newState.availablePowerups.length}, activePowerups=${newState.activePowerups.length}',
+      AppLogger.debug(
+        'Direct activation result',
+        tag: 'GameNotifier',
+        data: {
+          'availablePowerups': newState.availablePowerups.length,
+          'activePowerups': newState.activePowerups.length,
+        },
       );
 
       state = AsyncValue.data(newState);
@@ -737,9 +1099,27 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
           .read(powerupNotificationProvider.notifier)
           .showActivatedPowerup(powerupType);
 
-      print('🎉 Direct powerup activation completed successfully');
+      AppLogger.debug(
+        'Direct powerup activation completed successfully',
+        tag: 'GameNotifier',
+      );
     } catch (error) {
-      print('💥 Error in debugDirectActivatePowerup: $error');
+      AppLogger.error(
+        'Error in debugDirectActivatePowerup',
+        tag: 'GameNotifier',
+        error: error,
+      );
+    }
+  }
+
+  /// Determine game mode from game state
+  String _determineGameMode(GameEntity gameState) {
+    if (gameState.isTimeAttackMode) {
+      return AppConstants.gameModeTimeAttack;
+    } else if (gameState.isScenicMode) {
+      return AppConstants.gameModeScenicMode;
+    } else {
+      return AppConstants.gameModeClassic;
     }
   }
 }
@@ -750,36 +1130,41 @@ final gameProvider =
       return GameNotifier(ref);
     });
 
-// Computed providers for UI convenience
+// Optimized computed providers for UI convenience - using select for better performance
 final gameScoreProvider = Provider<int>((ref) {
-  final gameState = ref.watch(gameProvider);
-  return gameState.value?.score ?? 0;
+  return ref.watch(gameProvider.select((state) => state.value?.score ?? 0));
 });
 
 final gameBestScoreProvider = Provider<int>((ref) {
-  final gameState = ref.watch(gameProvider);
-  return gameState.value?.bestScore ?? 0;
+  return ref.watch(gameProvider.select((state) => state.value?.bestScore ?? 0));
 });
 
 final gameIsOverProvider = Provider<bool>((ref) {
-  final gameState = ref.watch(gameProvider);
-  return gameState.value?.isGameOver ?? false;
+  return ref.watch(
+    gameProvider.select((state) => state.value?.isGameOver ?? false),
+  );
 });
 
 final gameHasWonProvider = Provider<bool>((ref) {
-  final gameState = ref.watch(gameProvider);
-  return gameState.value?.hasWon ?? false;
+  return ref.watch(
+    gameProvider.select((state) => state.value?.hasWon ?? false),
+  );
 });
 
 final gameIsPausedProvider = Provider<bool>((ref) {
-  final gameState = ref.watch(gameProvider);
-  return gameState.value?.isPaused ?? false;
+  return ref.watch(
+    gameProvider.select((state) => state.value?.isPaused ?? false),
+  );
 });
 
 final gameBoardProvider = Provider<List<List<TileEntity?>>>((ref) {
-  final gameState = ref.watch(gameProvider);
-  return gameState.value?.board ??
-      List.generate(5, (_) => List.generate(5, (_) => null));
+  return ref.watch(
+    gameProvider.select(
+      (state) =>
+          state.value?.board ??
+          List.generate(5, (_) => List.generate(5, (_) => null)),
+    ),
+  );
 });
 
 // Game statistics provider
@@ -800,16 +1185,31 @@ final gameErrorProvider = Provider<String?>((ref) {
   return gameState.hasError ? gameState.error.toString() : null;
 });
 
-// Provider to check if there's a resumable game (not game over and has progress)
+// Provider to check if there's a resumable game (not game over and has actual progress)
 final hasResumableGameProvider = Provider<bool>((ref) {
   final gameState = ref.watch(gameProvider);
   final game = gameState.value;
 
   if (game == null) return false;
 
-  // Check if game is not over and has some progress (score > 0 or tiles on board)
-  final hasProgress = game.score > 0 || game.allTiles.isNotEmpty;
-  return !game.isGameOver && hasProgress;
+  // Game must not be over to be resumable
+  if (game.isGameOver) return false;
+
+  // Check if game has actual progress beyond initial state
+  // A fresh game starts with 2 tiles and score 0
+  // We consider it resumable only if:
+  // 1. Score > 0 (player made successful merges), OR
+  // 2. More than 2 tiles on board (player made moves that added tiles), OR
+  // 3. Game has been paused (indicating user interaction), OR
+  // 4. Game has powerups (indicating progression)
+  final hasScore = game.score > 0;
+  final hasMoreThanInitialTiles = game.allTiles.length > 2;
+  final wasPaused = game.isPaused;
+  final hasPowerups =
+      game.availablePowerups.isNotEmpty || game.usedPowerupTypes.isNotEmpty;
+
+  // A game is resumable if it shows clear signs of being played
+  return hasScore || hasMoreThanInitialTiles || wasPaused || hasPowerups;
 });
 
 // Provider for resumable game info (score, etc.)

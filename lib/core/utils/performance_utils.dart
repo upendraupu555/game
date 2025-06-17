@@ -13,7 +13,7 @@ class PerformanceUtils {
   static int _frameCount = 0;
   static DateTime? _lastFrameTime;
 
-  /// Monitor frame rate and detect performance issues
+  /// Optimized frame rate monitoring with reduced overhead
   static void trackFrameRate() {
     if (!AppConstants.enablePerformanceLogging) return;
 
@@ -28,8 +28,8 @@ class PerformanceUtils {
 
       _frameCount++;
 
-      // Log performance metrics every 60 frames
-      if (_frameCount % 60 == 0) {
+      // Log performance metrics every 120 frames (reduced frequency for better performance)
+      if (_frameCount % 120 == 0) {
         _logPerformanceMetrics();
       }
     }

@@ -4,6 +4,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/localization/localization_manager.dart';
 import '../../core/navigation/navigation_service.dart';
 import '../../core/utils/auth_error_handler.dart';
+import '../../core/utils/error_handler.dart';
 import '../providers/user_providers.dart';
 import '../providers/theme_providers.dart';
 
@@ -48,40 +49,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } catch (error) {
       if (mounted) {
-        // Check if this is an email confirmation error
-        if (error is AuthenticationError && error.isEmailNotConfirmed) {
-          // Handle email confirmation error
-          final handled = await AuthErrorHandler.handleEmailConfirmationError(
-            context,
-            ref,
-            error.originalError,
-            email: error.email,
-          );
-
-          if (!handled && mounted) {
-            // Show fallback error message
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(error.userFriendlyMessage),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 5),
-              ),
-            );
-          }
-        } else {
-          // Handle other authentication errors
-          final errorMessage = error is AuthenticationError
-              ? error.userFriendlyMessage
-              : 'Login failed: ${error.toString()}';
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorMessage),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
+        // Use the enhanced auth error handler with dialog display
+        AuthErrorHandler.showAuthErrorDialog(
+          context,
+          ref,
+          error,
+          email: _emailController.text.trim(),
+          onRetry: () => _handleLogin(),
+        );
       }
     } finally {
       if (mounted) {
@@ -114,36 +89,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } catch (error) {
       if (mounted) {
-        // Check if this is an email confirmation error
+        // Check if this is an email confirmation error for registration
         if (error is AuthenticationError && error.isEmailNotConfirmed) {
-          // For registration, show success message with email confirmation instructions
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                LocalizationManager.translate(
-                  ref,
-                  'email_confirmation_pending',
-                ),
-              ),
-              backgroundColor: Colors.orange,
-              duration: const Duration(seconds: 5),
-            ),
+          // For registration, show success message and navigate to profile
+          ErrorHandler.showSuccessDialog(
+            context,
+            ref,
+            LocalizationManager.translate(ref, 'email_confirmation_pending'),
+            title: LocalizationManager.translate(ref, 'success_dialog_title'),
+            onOk: () =>
+                NavigationService.pushReplacementNamed(AppRoutes.profile),
           );
-
-          // Navigate to profile or show confirmation dialog
-          NavigationService.pushReplacementNamed(AppRoutes.profile);
         } else {
-          // Handle other registration errors
-          final errorMessage = error is AuthenticationError
-              ? error.userFriendlyMessage
-              : 'Registration failed: ${error.toString()}';
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorMessage),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 4),
-            ),
+          // Use the enhanced auth error handler for other registration errors
+          AuthErrorHandler.showAuthErrorDialog(
+            context,
+            ref,
+            error,
+            email: _emailController.text.trim(),
+            onRetry: () => _handleRegister(),
           );
         }
       }
@@ -355,6 +319,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: AppConstants.paddingMedium),
+
+                  // Forgot Password Link
+                  TextButton(
+                    onPressed: () =>
+                        NavigationService.pushNamed(AppRoutes.forgotPassword),
+                    child: Text(
+                      LocalizationManager.translate(ref, 'forgot_password'),
+                      style: TextStyle(
+                        color: primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+
                   const SizedBox(height: AppConstants.paddingLarge),
 
                   // Guest Info

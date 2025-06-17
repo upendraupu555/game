@@ -60,7 +60,7 @@ class _PowerupVisualEffectsState extends ConsumerState<PowerupVisualEffects>
   Widget build(BuildContext context) {
     final visualEffects = ref.watch(powerupVisualEffectsProvider);
     final isTileFreezeActive = ref.watch(isTileFreezeActiveProvider);
-    final isMergeBoostActive = ref.watch(isMergeBoostActiveProvider);
+
     final isBlockerShieldActive = ref.watch(isBlockerShieldActiveProvider);
 
     return AnimatedBuilder(
@@ -79,9 +79,6 @@ class _PowerupVisualEffectsState extends ConsumerState<PowerupVisualEffects>
             // Tile Freeze effect - Blue glow around board edges
             if (isTileFreezeActive) _buildTileFreezeEffect(),
 
-            // Merge Boost effect - Purple glow on tiles
-            if (isMergeBoostActive) _buildMergeBoostEffect(),
-
             // Blocker Shield effect - Green shield indicator
             if (isBlockerShieldActive) _buildBlockerShieldEffect(),
           ],
@@ -93,16 +90,16 @@ class _PowerupVisualEffectsState extends ConsumerState<PowerupVisualEffects>
   bool _shouldShowPulse(Map<PowerupType, PowerupVisualEffect> effects) {
     return effects.values.any(
       (effect) =>
-          effect.isActive &&
-          [
-            PowerupType.doubleMerge,
-            PowerupType.valueUpgrade,
-          ].contains(effect.type),
+          effect.isActive && [PowerupType.valueUpgrade].contains(effect.type),
     );
   }
 
   Widget _buildTileFreezeEffect() {
-    return Positioned.fill(
+    return Positioned(
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
       child: IgnorePointer(
         // This allows touch events to pass through
         child: Container(
@@ -129,33 +126,6 @@ class _PowerupVisualEffectsState extends ConsumerState<PowerupVisualEffects>
     );
   }
 
-  Widget _buildMergeBoostEffect() {
-    return Positioned.fill(
-      child: IgnorePointer(
-        // This allows touch events to pass through
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppConstants.borderRadiusLarge),
-            gradient: RadialGradient(
-              center: Alignment.center,
-              radius: 1.0,
-              colors: [
-                const Color(0xFF9C27B0).withValues(alpha: 0.0),
-                const Color(
-                  0xFF9C27B0,
-                ).withValues(alpha: _glowAnimation.value * 0.2),
-                const Color(
-                  0xFF9C27B0,
-                ).withValues(alpha: _glowAnimation.value * 0.4),
-              ],
-              stops: const [0.0, 0.7, 1.0],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildBlockerShieldEffect() {
     return Positioned(
       top: 10,
@@ -165,19 +135,23 @@ class _PowerupVisualEffectsState extends ConsumerState<PowerupVisualEffects>
         decoration: BoxDecoration(
           color: const Color(
             0xFF4CAF50,
-          ).withOpacity(_glowAnimation.value * 0.9),
+          ).withValues(alpha: _glowAnimation.value * 0.9),
           borderRadius: BorderRadius.circular(AppConstants.borderRadiusSmall),
           boxShadow: [
             BoxShadow(
               color: const Color(
                 0xFF4CAF50,
-              ).withOpacity(_glowAnimation.value * 0.5),
+              ).withValues(alpha: _glowAnimation.value * 0.5),
               blurRadius: 8.0,
               spreadRadius: 2.0,
             ),
           ],
         ),
-        child: const Icon(Icons.shield, color: Colors.white, size: 20),
+        child: Icon(
+          Icons.shield,
+          color: Colors.white.withValues(alpha: _glowAnimation.value),
+          size: 20,
+        ),
       ),
     );
   }

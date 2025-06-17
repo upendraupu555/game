@@ -5,6 +5,7 @@ import '../../data/repositories/font_repository_impl.dart';
 import '../../domain/entities/font_entity.dart';
 import '../../domain/repositories/font_repository.dart';
 import '../../domain/usecases/font_usecases.dart';
+import '../../core/constants/app_constants.dart';
 import 'theme_providers.dart';
 
 // Data layer providers
@@ -24,7 +25,9 @@ final getFontSettingsUseCaseProvider = Provider<GetFontSettingsUseCase>((ref) {
   return GetFontSettingsUseCase(repository);
 });
 
-final updateFontFamilyUseCaseProvider = Provider<UpdateFontFamilyUseCase>((ref) {
+final updateFontFamilyUseCaseProvider = Provider<UpdateFontFamilyUseCase>((
+  ref,
+) {
   final repository = ref.watch(fontRepositoryProvider);
   return UpdateFontFamilyUseCase(repository);
 });
@@ -34,7 +37,9 @@ final resetFontUseCaseProvider = Provider<ResetFontUseCase>((ref) {
   return ResetFontUseCase(repository);
 });
 
-final getAvailableFontsUseCaseProvider = Provider<GetAvailableFontsUseCase>((ref) {
+final getAvailableFontsUseCaseProvider = Provider<GetAvailableFontsUseCase>((
+  ref,
+) {
   final repository = ref.watch(fontRepositoryProvider);
   return GetAvailableFontsUseCase(repository);
 });
@@ -79,22 +84,25 @@ class FontNotifier extends StateNotifier<AsyncValue<FontEntity>> {
 }
 
 // Main font provider
-final fontProvider = StateNotifierProvider<FontNotifier, AsyncValue<FontEntity>>((ref) {
-  return FontNotifier(ref);
-});
+final fontProvider =
+    StateNotifierProvider<FontNotifier, AsyncValue<FontEntity>>((ref) {
+      return FontNotifier(ref);
+    });
 
 // Computed providers for UI convenience
 final currentFontProvider = Provider<FontEntity?>((ref) {
   final fontState = ref.watch(fontProvider);
-  return fontState.maybeWhen(
-    data: (font) => font,
-    orElse: () => null,
-  );
+  return fontState.maybeWhen(data: (font) => font, orElse: () => null);
 });
 
 final currentFontFamilyProvider = Provider<String>((ref) {
+  // TODO: Temporarily disabled font customization - always return default font
+  if (!AppConstants.enableFontCustomization) {
+    return AppConstants.defaultFontFamily; // Always use default font
+  }
   final font = ref.watch(currentFontProvider);
-  return font?.fontFamily ?? 'BubblegumSans'; // Fallback to default
+  return font?.fontFamily ??
+      AppConstants.defaultFontFamily; // Fallback to default
 });
 
 final availableFontsProvider = Provider<List<FontEntity>>((ref) {

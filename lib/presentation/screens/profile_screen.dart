@@ -6,7 +6,8 @@ import '../../core/navigation/navigation_service.dart';
 
 import '../providers/user_providers.dart';
 import '../providers/theme_providers.dart';
-import '../providers/game_providers.dart';
+// TODO: Statistics section removed - game providers no longer needed
+// import '../providers/game_providers.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -15,7 +16,8 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userState = ref.watch(userProvider);
     final themeState = ref.watch(themeProvider);
-    final gameStatsState = ref.watch(gameStatisticsProvider);
+    // TODO: Statistics section removed from profile screen
+    // final gameStatsState = ref.watch(gameStatisticsProvider);
 
     final primaryColor = themeState.when(
       data: (theme) {
@@ -55,13 +57,8 @@ class ProfileScreen extends ConsumerWidget {
           color: Theme.of(context).scaffoldBackgroundColor,
         ),
         child: userState.when(
-          data: (user) => _buildProfileContent(
-            context,
-            ref,
-            user,
-            primaryColor,
-            gameStatsState,
-          ),
+          data: (user) =>
+              _buildProfileContent(context, ref, user, primaryColor),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Center(
             child: Column(
@@ -89,7 +86,6 @@ class ProfileScreen extends ConsumerWidget {
     WidgetRef ref,
     user,
     Color primaryColor,
-    gameStatsState,
   ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppConstants.paddingLarge),
@@ -104,13 +100,19 @@ class ProfileScreen extends ConsumerWidget {
           _buildUserInfoSection(context, ref, user, primaryColor),
           const SizedBox(height: AppConstants.paddingLarge),
 
-          // Statistics Section
-          _buildStatisticsPlaceholder(context, ref, primaryColor),
-          const SizedBox(height: AppConstants.paddingLarge),
+          // TODO: Statistics section removed from profile screen
+          // _buildStatisticsPlaceholder(context, ref, primaryColor),
+          // const SizedBox(height: AppConstants.paddingLarge),
 
           // Action Buttons
           if (!user.isAuthenticated)
             _buildGuestActions(context, ref, primaryColor),
+
+          // Account Deletion Section (for authenticated users only)
+          if (user.isAuthenticated) ...[
+            const SizedBox(height: AppConstants.paddingLarge),
+            _buildDangerZone(context, ref, user, primaryColor),
+          ],
         ],
       ),
     );
@@ -255,6 +257,71 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildDangerZone(
+    BuildContext context,
+    WidgetRef ref,
+    user,
+    Color primaryColor,
+  ) {
+    return Card(
+      elevation: 2,
+      color: Colors.red.withValues(alpha: 0.05),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppConstants.borderRadiusMedium),
+        side: BorderSide(color: Colors.red.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppConstants.paddingMedium),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.warning, color: Colors.red, size: 20),
+                const SizedBox(width: AppConstants.paddingSmall),
+                Text(
+                  'Danger Zone',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppConstants.paddingMedium),
+            Text(
+              'Once you delete your account, there is no going back. This action cannot be undone.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.red.shade700),
+            ),
+            const SizedBox(height: AppConstants.paddingMedium),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _showDeleteAccountDialog(context, ref, user),
+                icon: const Icon(Icons.delete_forever),
+                label: const Text('Delete Account'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.borderRadiusMedium,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // TODO: Statistics section removed from profile screen
+  // Uncomment these methods to restore statistics functionality
+  /*
   Widget _buildStatisticsPlaceholder(
     BuildContext context,
     WidgetRef ref,
@@ -313,6 +380,7 @@ class ProfileScreen extends ConsumerWidget {
       ],
     );
   }
+  */
 
   Widget _buildGuestActions(
     BuildContext context,
@@ -379,5 +447,168 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context, WidgetRef ref, user) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent accidental dismissal
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.red, size: 24),
+            const SizedBox(width: AppConstants.paddingSmall),
+            const Text('Delete Account'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Are you sure you want to delete your account?',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: AppConstants.paddingMedium),
+            const Text('This action will:'),
+            const SizedBox(height: AppConstants.paddingSmall),
+            const Text('• Permanently delete your account'),
+            const Text('• Remove all your game data'),
+            const Text('• Clear your statistics and achievements'),
+            const Text('• Cannot be undone'),
+            const SizedBox(height: AppConstants.paddingMedium),
+            Container(
+              padding: const EdgeInsets.all(AppConstants.paddingSmall),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(
+                  AppConstants.borderRadiusSmall,
+                ),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+              ),
+              child: const Text(
+                'This action is irreversible!',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => _confirmDeleteAccount(context, ref, user),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete Account'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteAccount(BuildContext context, WidgetRef ref, user) {
+    Navigator.of(context).pop(); // Close first dialog
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Final Confirmation'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Type "DELETE" to confirm account deletion:'),
+            const SizedBox(height: AppConstants.paddingMedium),
+            TextField(
+              onChanged: (value) {
+                // Store the value for validation
+              },
+              decoration: const InputDecoration(
+                hintText: 'Type DELETE here',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => _performAccountDeletion(context, ref),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Confirm Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _performAccountDeletion(BuildContext context, WidgetRef ref) async {
+    Navigator.of(context).pop(); // Close confirmation dialog
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: AppConstants.paddingMedium),
+            Text('Deleting account...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      await ref.read(userProvider.notifier).deleteUserAccount();
+
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.of(context).pop();
+
+        // Show success message and navigate to home
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Navigate to home screen and clear stack
+        NavigationService.pushNamedAndRemoveUntil(
+          AppRoutes.home,
+          (route) => false,
+        );
+      }
+    } catch (error) {
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.of(context).pop();
+
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete account: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

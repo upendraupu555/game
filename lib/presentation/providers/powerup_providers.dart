@@ -5,7 +5,9 @@ import '../../core/logging/app_logger.dart';
 import 'game_providers.dart';
 
 // Use case providers
-final checkPowerupAwardUseCaseProvider = Provider<CheckPowerupAwardUseCase>((ref) {
+final checkPowerupAwardUseCaseProvider = Provider<CheckPowerupAwardUseCase>((
+  ref,
+) {
   return CheckPowerupAwardUseCase();
 });
 
@@ -13,90 +15,94 @@ final activatePowerupUseCaseProvider = Provider<ActivatePowerupUseCase>((ref) {
   return ActivatePowerupUseCase();
 });
 
-final processPowerupEffectsUseCaseProvider = Provider<ProcessPowerupEffectsUseCase>((ref) {
-  return ProcessPowerupEffectsUseCase();
-});
+final processPowerupEffectsUseCaseProvider =
+    Provider<ProcessPowerupEffectsUseCase>((ref) {
+      return ProcessPowerupEffectsUseCase();
+    });
 
 final addPowerupUseCaseProvider = Provider<AddPowerupUseCase>((ref) {
   return AddPowerupUseCase();
 });
 
-final checkTileSpawnPreventionUseCaseProvider = Provider<CheckTileSpawnPreventionUseCase>((ref) {
-  return CheckTileSpawnPreventionUseCase();
-});
+final checkTileSpawnPreventionUseCaseProvider =
+    Provider<CheckTileSpawnPreventionUseCase>((ref) {
+      return CheckTileSpawnPreventionUseCase();
+    });
 
-final checkMergeBoostUseCaseProvider = Provider<CheckMergeBoostUseCase>((ref) {
-  return CheckMergeBoostUseCase();
-});
-
-final checkBlockerShieldUseCaseProvider = Provider<CheckBlockerShieldUseCase>((ref) {
+final checkBlockerShieldUseCaseProvider = Provider<CheckBlockerShieldUseCase>((
+  ref,
+) {
   return CheckBlockerShieldUseCase();
 });
 
-final getPowerupVisualEffectsUseCaseProvider = Provider<GetPowerupVisualEffectsUseCase>((ref) {
-  return GetPowerupVisualEffectsUseCase();
-});
+final getPowerupVisualEffectsUseCaseProvider =
+    Provider<GetPowerupVisualEffectsUseCase>((ref) {
+      return GetPowerupVisualEffectsUseCase();
+    });
 
-// Powerup state providers
+// Optimized powerup state providers using select for better performance
 final availablePowerupsProvider = Provider<List<PowerupEntity>>((ref) {
-  final gameState = ref.watch(gameProvider);
-  return gameState.value?.availablePowerups ?? [];
+  return ref.watch(
+    gameProvider.select((state) => state.value?.availablePowerups ?? []),
+  );
 });
 
 final activePowerupsProvider = Provider<List<PowerupEntity>>((ref) {
-  final gameState = ref.watch(gameProvider);
-  return gameState.value?.activePowerups ?? [];
+  return ref.watch(
+    gameProvider.select((state) => state.value?.activePowerups ?? []),
+  );
 });
 
 final usedPowerupTypesProvider = Provider<Set<PowerupType>>((ref) {
-  final gameState = ref.watch(gameProvider);
-  return gameState.value?.usedPowerupTypes ?? {};
+  return ref.watch(
+    gameProvider.select((state) => state.value?.usedPowerupTypes ?? {}),
+  );
 });
 
-// Powerup effect providers
+// Optimized powerup effect providers using select
 final isTileFreezeActiveProvider = Provider<bool>((ref) {
-  final gameState = ref.watch(gameProvider);
-  return gameState.value?.isTileFreezeActive ?? false;
-});
-
-final isMergeBoostActiveProvider = Provider<bool>((ref) {
-  final gameState = ref.watch(gameProvider);
-  return gameState.value?.isMergeBoostActive ?? false;
+  return ref.watch(
+    gameProvider.select((state) => state.value?.isTileFreezeActive ?? false),
+  );
 });
 
 final isBlockerShieldActiveProvider = Provider<bool>((ref) {
-  final gameState = ref.watch(gameProvider);
-  return gameState.value?.isBlockerShieldActive ?? false;
+  return ref.watch(
+    gameProvider.select((state) => state.value?.isBlockerShieldActive ?? false),
+  );
 });
 
 // Powerup visual effects provider
-final powerupVisualEffectsProvider = Provider<Map<PowerupType, PowerupVisualEffect>>((ref) {
-  final gameState = ref.watch(gameProvider);
-  final getEffectsUseCase = ref.watch(getPowerupVisualEffectsUseCaseProvider);
-  
-  if (gameState.value == null) return {};
-  
-  return getEffectsUseCase.execute(gameState.value!);
-});
+final powerupVisualEffectsProvider =
+    Provider<Map<PowerupType, PowerupVisualEffect>>((ref) {
+      final gameState = ref.watch(gameProvider);
+      final getEffectsUseCase = ref.watch(
+        getPowerupVisualEffectsUseCaseProvider,
+      );
+
+      if (gameState.value == null) return {};
+
+      return getEffectsUseCase.execute(gameState.value!);
+    });
 
 // Powerup availability provider
 final powerupAvailabilityProvider = Provider<Map<PowerupType, bool>>((ref) {
   final gameState = ref.watch(gameProvider);
   final availablePowerups = ref.watch(availablePowerupsProvider);
   final usedPowerupTypes = ref.watch(usedPowerupTypesProvider);
-  
+
   if (gameState.value == null) return {};
-  
+
   final availability = <PowerupType, bool>{};
-  
+
   for (final powerupType in PowerupType.values) {
     final isAvailable = availablePowerups.any((p) => p.type == powerupType);
     final isUsed = usedPowerupTypes.contains(powerupType);
     final canUse = isAvailable && !isUsed && !gameState.value!.isGameOver;
-    
+
     availability[powerupType] = canUse;
   }
-  
+
   return availability;
 });
 
@@ -104,16 +110,20 @@ final powerupAvailabilityProvider = Provider<Map<PowerupType, bool>>((ref) {
 final powerupAcquisitionProvider = Provider<List<PowerupType>>((ref) {
   final gameState = ref.watch(gameProvider);
   final checkAwardUseCase = ref.watch(checkPowerupAwardUseCaseProvider);
-  
+
   if (gameState.value == null) return [];
-  
+
   return checkAwardUseCase.execute(gameState.value!);
 });
 
 // Powerup notification provider for showing powerup acquisition notifications
-final powerupNotificationProvider = StateNotifierProvider<PowerupNotificationNotifier, PowerupNotificationState>((ref) {
-  return PowerupNotificationNotifier();
-});
+final powerupNotificationProvider =
+    StateNotifierProvider<
+      PowerupNotificationNotifier,
+      PowerupNotificationState
+    >((ref) {
+      return PowerupNotificationNotifier();
+    });
 
 class PowerupNotificationState {
   final List<PowerupType> newPowerups;
@@ -138,24 +148,24 @@ class PowerupNotificationState {
     );
   }
 
-  bool get hasNotifications => 
-      newPowerups.isNotEmpty || 
-      activatedPowerups.isNotEmpty || 
+  bool get hasNotifications =>
+      newPowerups.isNotEmpty ||
+      activatedPowerups.isNotEmpty ||
       expiredPowerups.isNotEmpty;
 }
 
-class PowerupNotificationNotifier extends StateNotifier<PowerupNotificationState> {
+class PowerupNotificationNotifier
+    extends StateNotifier<PowerupNotificationState> {
   PowerupNotificationNotifier() : super(const PowerupNotificationState());
 
   void showNewPowerup(PowerupType powerupType) {
-    state = state.copyWith(
-      newPowerups: [...state.newPowerups, powerupType],
-    );
+    state = state.copyWith(newPowerups: [...state.newPowerups, powerupType]);
 
-    AppLogger.debug('🎁 New powerup notification', tag: 'PowerupNotificationNotifier', data: {
-      'powerupType': powerupType.name,
-      'powerupIcon': powerupType.icon,
-    });
+    AppLogger.debug(
+      '🎁 New powerup notification',
+      tag: 'PowerupNotificationNotifier',
+      data: {'powerupType': powerupType.name, 'powerupIcon': powerupType.icon},
+    );
 
     // Auto-clear after 3 seconds
     Future.delayed(const Duration(seconds: 3), () {
@@ -168,10 +178,11 @@ class PowerupNotificationNotifier extends StateNotifier<PowerupNotificationState
       activatedPowerups: [...state.activatedPowerups, powerupType],
     );
 
-    AppLogger.debug('⚡ Powerup activated notification', tag: 'PowerupNotificationNotifier', data: {
-      'powerupType': powerupType.name,
-      'powerupIcon': powerupType.icon,
-    });
+    AppLogger.debug(
+      '⚡ Powerup activated notification',
+      tag: 'PowerupNotificationNotifier',
+      data: {'powerupType': powerupType.name, 'powerupIcon': powerupType.icon},
+    );
 
     // Auto-clear after 2 seconds
     Future.delayed(const Duration(seconds: 2), () {
@@ -184,10 +195,11 @@ class PowerupNotificationNotifier extends StateNotifier<PowerupNotificationState
       expiredPowerups: [...state.expiredPowerups, powerupType],
     );
 
-    AppLogger.debug('⏰ Powerup expired notification', tag: 'PowerupNotificationNotifier', data: {
-      'powerupType': powerupType.name,
-      'powerupIcon': powerupType.icon,
-    });
+    AppLogger.debug(
+      '⏰ Powerup expired notification',
+      tag: 'PowerupNotificationNotifier',
+      data: {'powerupType': powerupType.name, 'powerupIcon': powerupType.icon},
+    );
 
     // Auto-clear after 2 seconds
     Future.delayed(const Duration(seconds: 2), () {
@@ -203,13 +215,17 @@ class PowerupNotificationNotifier extends StateNotifier<PowerupNotificationState
 
   void clearActivatedPowerup(PowerupType powerupType) {
     state = state.copyWith(
-      activatedPowerups: state.activatedPowerups.where((p) => p != powerupType).toList(),
+      activatedPowerups: state.activatedPowerups
+          .where((p) => p != powerupType)
+          .toList(),
     );
   }
 
   void clearExpiredPowerup(PowerupType powerupType) {
     state = state.copyWith(
-      expiredPowerups: state.expiredPowerups.where((p) => p != powerupType).toList(),
+      expiredPowerups: state.expiredPowerups
+          .where((p) => p != powerupType)
+          .toList(),
     );
   }
 
@@ -219,9 +235,10 @@ class PowerupNotificationNotifier extends StateNotifier<PowerupNotificationState
 }
 
 // Powerup tutorial provider for showing first-time usage hints
-final powerupTutorialProvider = StateNotifierProvider<PowerupTutorialNotifier, Set<PowerupType>>((ref) {
-  return PowerupTutorialNotifier();
-});
+final powerupTutorialProvider =
+    StateNotifierProvider<PowerupTutorialNotifier, Set<PowerupType>>((ref) {
+      return PowerupTutorialNotifier();
+    });
 
 class PowerupTutorialNotifier extends StateNotifier<Set<PowerupType>> {
   PowerupTutorialNotifier() : super(<PowerupType>{});

@@ -6,7 +6,7 @@ import '../providers/game_providers.dart';
 import '../providers/theme_providers.dart';
 import '../providers/font_providers.dart';
 import 'pause_menu_overlay.dart';
-import 'statistics_dialog.dart';
+
 import 'time_attack_timer.dart';
 
 /// Custom app bar widget for the game screen
@@ -202,12 +202,6 @@ class CustomGameAppBar extends ConsumerWidget {
         onNewGame: () {
           Navigator.of(context).pop();
           ref.read(gameProvider.notifier).restart();
-        },
-        onShowStatistics: () {
-          showDialog(
-            context: context,
-            builder: (context) => const StatisticsDialog(),
-          );
         },
       ),
     ).then((_) {

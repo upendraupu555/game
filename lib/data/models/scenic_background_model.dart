@@ -1,4 +1,3 @@
-import 'dart:convert';
 import '../../domain/entities/scenic_background_entity.dart';
 import '../../domain/repositories/scenic_background_repository.dart';
 
@@ -95,13 +94,7 @@ class ScenicBackgroundModel {
 
   @override
   int get hashCode {
-    return Object.hash(
-      index,
-      assetPath,
-      name,
-      isLoaded,
-      lastUsed,
-    );
+    return Object.hash(index, assetPath, name, isLoaded, lastUsed);
   }
 
   @override
@@ -162,7 +155,8 @@ class ScenicModeSettingsModel {
       autoChangeInterval: Duration(
         milliseconds: json['autoChangeIntervalMs'] as int? ?? 300000,
       ),
-      favoriteBackgrounds: (json['favoriteBackgrounds'] as List<dynamic>?)
+      favoriteBackgrounds:
+          (json['favoriteBackgrounds'] as List<dynamic>?)
               ?.map((e) => e as int)
               .toList() ??
           const [],

@@ -73,10 +73,17 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
   @override
   Future<void> clearAllUserData() async {
     try {
+      // Clear all user-related data to fix persistence bug
       await Future.wait([
         _prefs.remove(AppConstants.userDataKey),
         _prefs.remove(AppConstants.currentUserIdKey),
         _prefs.remove(AppConstants.userStatisticsKey),
+        // Clear payment data as well during logout
+        _prefs.remove(AppConstants.adRemovalPurchaseKey),
+        _prefs.remove(AppConstants.paymentTransactionKey),
+        _prefs.remove(AppConstants.lastPaymentAttemptKey),
+        // Clear any theme/font settings that might be user-specific
+        // Note: We keep general app settings like theme mode and language
       ]);
     } catch (e) {
       throw UserDataException('Failed to clear user data: $e');
@@ -87,18 +94,18 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
   String generateGameId() {
     const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     final buffer = StringBuffer();
-    
+
     for (int i = 0; i < AppConstants.gameIdLength; i++) {
       buffer.write(chars[_random.nextInt(chars.length)]);
     }
-    
+
     return buffer.toString();
   }
 
   @override
   bool isValidGameId(String gameId) {
     if (gameId.length != AppConstants.gameIdLength) return false;
-    
+
     // Check if all characters are alphanumeric
     final regex = RegExp(r'^[A-Z0-9]+$');
     return regex.hasMatch(gameId);

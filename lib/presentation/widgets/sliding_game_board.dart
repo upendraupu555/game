@@ -1,7 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/game_entity.dart';
 import '../../domain/entities/tile_entity.dart';
@@ -13,6 +11,7 @@ import '../../core/constants/app_constants.dart';
 import '../providers/powerup_selection_providers.dart';
 import '../providers/game_providers.dart';
 import 'powerup_selection_overlay.dart';
+import 'keyboard_input_handler.dart';
 
 /// Game board with sliding tile animations
 class SlidingGameBoard extends ConsumerStatefulWidget {
@@ -39,7 +38,6 @@ class _SlidingGameBoardState extends ConsumerState<SlidingGameBoard>
   ); // Optimized for 60fps
 
   late AnimationController _moveController;
-  late Animation<double> _moveAnimation;
 
   Map<String, TilePosition> _tilePositions = {};
   bool _isAnimating = false;
@@ -49,8 +47,14 @@ class _SlidingGameBoardState extends ConsumerState<SlidingGameBoard>
   // Performance optimization: Cache position calculations
   final Map<String, Offset> _positionCache = {};
 
-  // Batch state updates to reduce rebuilds
-  bool _hasPendingStateUpdate = false;
+  // Cache for tile decorations to avoid recalculation
+  final Map<String, BoxDecoration> _decorationCache = {};
+
+  // Pre-calculated constants for better performance
+  static const double _gridWidth = 5 * tileSize + 6 * tileSpacing;
+  static const double _gridHeight = 5 * tileSize + 6 * tileSpacing;
+  static const double _offsetX = (boardSize - _gridWidth) / 2;
+  static const double _offsetY = (boardSize - _gridHeight) / 2;
 
   @override
   void initState() {
@@ -60,11 +64,7 @@ class _SlidingGameBoardState extends ConsumerState<SlidingGameBoard>
       vsync: this,
     );
 
-    // Create optimized animation with easing
-    _moveAnimation = CurvedAnimation(
-      parent: _moveController,
-      curve: Curves.easeOutCubic,
-    );
+    // Animation uses easing directly in the AnimatedBuilder
 
     _initializeTilePositions();
 
@@ -88,6 +88,7 @@ class _SlidingGameBoardState extends ConsumerState<SlidingGameBoard>
 
     // Clear caches to prevent memory leaks
     _positionCache.clear();
+    _decorationCache.clear();
     _tilePositions.clear();
 
     // Reset performance tracking
@@ -212,53 +213,94 @@ class _SlidingGameBoardState extends ConsumerState<SlidingGameBoard>
   }
 
   Offset _getPositionForGrid(double row, double col) {
-    // Use cached position calculation for better performance
-    final key = '${row.toStringAsFixed(2)}_${col.toStringAsFixed(2)}';
+    // Use cached position calculation with pre-calculated constants for better performance
+    final key =
+        '${row.toStringAsFixed(1)}_${col.toStringAsFixed(1)}'; // Reduced precision for better cache hits
 
     return _positionCache.putIfAbsent(key, () {
-      // Calculate position with perfect centering to match background grid
-      const gridWidth = 5 * tileSize + 6 * tileSpacing;
-      const gridHeight = 5 * tileSize + 6 * tileSpacing;
-
-      final offsetX = (boardSize - gridWidth) / 2;
-      final offsetY = (boardSize - gridHeight) / 2;
-
-      final x = offsetX + tileSpacing + col * (tileSize + tileSpacing);
-      final y = offsetY + tileSpacing + row * (tileSize + tileSpacing);
+      // Use pre-calculated constants for optimal performance
+      final x = _offsetX + tileSpacing + col * (tileSize + tileSpacing);
+      final y = _offsetY + tileSpacing + row * (tileSize + tileSpacing);
       return Offset(x, y);
+    });
+  }
+
+  /// Get cached tile decoration for performance
+  BoxDecoration _getTileDecoration(
+    TileEntity tile,
+    double glowIntensity,
+    bool isInSelectionMode,
+    PowerupType? activePowerupType,
+  ) {
+    // Include tile value in cache key to ensure different values get different colors
+    final cacheKey =
+        '${tile.value}_${tile.isBlocker}_${glowIntensity.toStringAsFixed(2)}_${isInSelectionMode}_${activePowerupType?.name ?? 'none'}';
+
+    return _decorationCache.putIfAbsent(cacheKey, () {
+      return BoxDecoration(
+        color: Color(tile.colorValue),
+        borderRadius: BorderRadius.circular(4),
+        // Add selection border if in selection mode
+        border: isInSelectionMode && activePowerupType != null
+            ? Border.all(color: _getSelectionColor(activePowerupType), width: 3)
+            : null,
+        boxShadow: _buildTileShadows(
+          tile,
+          glowIntensity,
+          widget.gameState.isScenicMode,
+        ),
+      );
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final isInSelectionMode = ref.watch(isInSelectionModeProvider);
+    final gameBoardKey = ref.watch(gameBoardKeyProvider);
 
-    return Stack(
-      clipBehavior: Clip.none, // Allow overlay to extend beyond board bounds
-      children: [
-        GestureDetector(
-          onPanStart: isInSelectionMode ? null : _handlePanStart,
-          onPanEnd: isInSelectionMode ? null : _handlePanEnd,
-          onTapDown: isInSelectionMode ? _handleTapDown : null,
-          child: Container(
-            width: boardSize,
-            height: boardSize,
-            decoration: _buildGameBoardDecoration(),
-            child: Stack(
-              children: [
-                // Background grid
-                _buildBackgroundGrid(),
-                // Animated tiles
-                ..._tilePositions.values.map(_buildAnimatedTile),
-              ],
+    return RepaintBoundary(
+      child: GameKeyboardInputHandler(
+        onMove: widget.onMove,
+        enabled:
+            !isInSelectionMode, // Disable keyboard input during selection mode
+        child: Stack(
+          clipBehavior:
+              Clip.none, // Allow overlay to extend beyond board bounds
+          children: [
+            GestureDetector(
+              onPanStart: isInSelectionMode ? null : _handlePanStart,
+              onPanEnd: isInSelectionMode ? null : _handlePanEnd,
+              onTapDown: isInSelectionMode ? _handleTapDown : null,
+              child: RepaintBoundary(
+                child: Container(
+                  key: gameBoardKey, // Add the GlobalKey for position tracking
+                  width: boardSize,
+                  height: boardSize,
+                  decoration: _buildGameBoardDecoration(),
+                  child: Stack(
+                    children: [
+                      // Background grid
+                      _buildBackgroundGrid(),
+                      // Animated tiles
+                      ..._tilePositions.values.map(_buildAnimatedTile),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
 
-        // Selection mode indicators - positioned relative to the game board
-        if (isInSelectionMode)
-          Positioned.fill(child: SelectionModeIndicators(boardSize: 5)),
-      ],
+            // Selection mode indicators - positioned relative to the game board
+            if (isInSelectionMode)
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+                child: SelectionModeIndicators(boardSize: 5),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -295,7 +337,13 @@ class _SlidingGameBoardState extends ConsumerState<SlidingGameBoard>
   }
 
   Widget _buildBackgroundGrid() {
-    return Positioned.fill(child: CustomPaint(painter: GridPainter()));
+    return Positioned(
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
+      child: RepaintBoundary(child: CustomPaint(painter: GridPainter())),
+    );
   }
 
   /// Build tile shadows with scenic mode enhancements
@@ -385,94 +433,41 @@ class _SlidingGameBoardState extends ConsumerState<SlidingGameBoard>
 
         final offset = _getPositionForGrid(currentRow, currentCol);
 
-        // Alternative merge animation - "Ripple Wave" effect
+        // Optimized merge animation - simplified for better performance
         double scale = 1.0;
         double glowIntensity = 0.0;
-        double rotation = 0.0;
         double pulseOpacity = 1.0;
-        double rippleScale = 0.0;
 
         if (position.tile.isMerged) {
           final progress = _moveController.value;
 
-          if (progress > 0.55) {
-            // Animation starts at 55% of movement completion
-            final mergeProgress = (progress - 0.55) / 0.45;
+          if (progress > 0.6) {
+            // Simplified merge animation starts at 60% of movement completion
+            final mergeProgress = (progress - 0.6) / 0.4;
 
-            if (mergeProgress <= 0.4) {
-              // Phase 1: Ripple expansion (0-40%)
-              final rippleProgress = mergeProgress / 0.4;
-              rippleScale =
-                  (Curves.easeOutQuart.transform(rippleProgress) * 2.0).clamp(
-                    0.0,
-                    10.0,
-                  );
-              glowIntensity = (rippleProgress * 0.6).clamp(0.0, 1.0);
-              scale = (1.0 + (math.sin(rippleProgress * math.pi) * 0.15)).clamp(
-                0.1,
-                3.0,
-              ); // Gentle wave
-            } else if (mergeProgress <= 0.7) {
-              // Phase 2: Tile emphasis (40-70%)
-              final emphasisProgress = (mergeProgress - 0.4) / 0.3;
-              final emphasisCurve = Curves.elasticOut.transform(
-                emphasisProgress,
-              );
-              scale = (1.0 + (emphasisCurve * 0.25)).clamp(
-                0.1,
-                3.0,
-              ); // Bounce to 125%
-              glowIntensity = (0.6 - (emphasisProgress * 0.3)).clamp(
-                0.0,
-                1.0,
-              ); // Fade ripple glow
-              rippleScale = (2.0 + (emphasisProgress * 1.0)).clamp(
-                0.0,
-                10.0,
-              ); // Continue ripple expansion
-
-              // Add slight rotation for dynamic feel
-              rotation = (math.sin(emphasisProgress * math.pi * 2) * 0.05)
-                  .clamp(-0.5, 0.5);
+            // Single-phase animation for better performance
+            if (mergeProgress <= 0.5) {
+              // Scale up phase (0-50%)
+              final scaleProgress = mergeProgress / 0.5;
+              scale =
+                  (1.0 + (Curves.easeOutBack.transform(scaleProgress) * 0.3))
+                      .clamp(0.8, 1.5);
+              glowIntensity = (scaleProgress * 0.8).clamp(0.0, 1.0);
             } else {
-              // Phase 3: Settle with afterglow (70-100%)
-              final settleProgress = (mergeProgress - 0.7) / 0.3;
-              scale = (1.25 - (settleProgress * 0.25)).clamp(
-                0.1,
-                3.0,
-              ); // Return to normal
-              glowIntensity = (0.3 * (1.0 - settleProgress)).clamp(
-                0.0,
-                1.0,
-              ); // Fade afterglow
-              rippleScale = (3.0 + (settleProgress * 2.0)).clamp(
-                0.0,
-                10.0,
-              ); // Final ripple fade
-              rotation = (rotation * (1.0 - settleProgress)).clamp(
-                -0.5,
-                0.5,
-              ); // Stop rotation
+              // Scale down phase (50-100%)
+              final settleProgress = (mergeProgress - 0.5) / 0.5;
+              scale =
+                  (1.3 - (Curves.easeInCubic.transform(settleProgress) * 0.3))
+                      .clamp(0.8, 1.5);
+              glowIntensity = (0.8 * (1.0 - settleProgress)).clamp(0.0, 1.0);
 
-              // Subtle final pulse with proper clamping
-              final pulsePhase = settleProgress * math.pi * 4; // 2 full cycles
+              // Subtle pulse effect
               pulseOpacity =
-                  (1.0 + (math.sin(pulsePhase) * 0.08 * (1.0 - settleProgress)))
-                      .clamp(0.0, 1.0);
-            }
-
-            // Reduced logging for better performance
-            if (AppConstants.enablePerformanceLogging &&
-                mergeProgress % 0.2 < 0.05) {
-              AppLogger.animation(
-                'MERGE_ANIMATION_PROGRESS',
-                data: {
-                  'tileId': position.tile.id,
-                  'progress': progress.toStringAsFixed(2),
-                  'mergeProgress': mergeProgress.toStringAsFixed(2),
-                  'scale': scale.toStringAsFixed(2),
-                },
-              );
+                  (1.0 +
+                          (math.sin(settleProgress * math.pi * 2) *
+                              0.1 *
+                              (1.0 - settleProgress)))
+                      .clamp(0.8, 1.2);
             }
           }
         }
@@ -480,102 +475,52 @@ class _SlidingGameBoardState extends ConsumerState<SlidingGameBoard>
         return Positioned(
           left: offset.dx,
           top: offset.dy,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Ripple effect background
-              if (rippleScale > 0)
-                Transform.scale(
-                  scale: rippleScale,
-                  child: Container(
-                    width: tileSize,
-                    height: tileSize,
-                    decoration: BoxDecoration(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: Color(position.tile.colorValue).withValues(
-                          alpha: (glowIntensity * 0.5).clamp(0.0, 1.0),
-                        ),
-                        width: 2.0,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(position.tile.colorValue).withValues(
-                            alpha: (glowIntensity * 0.3).clamp(0.0, 1.0),
-                          ),
-                          blurRadius: 8,
-                          spreadRadius: 2,
-                          offset: Offset.zero,
-                        ),
-                      ],
-                    ),
+          child: RepaintBoundary(
+            child: Transform.scale(
+              scale: scale,
+              child: Opacity(
+                opacity: pulseOpacity.clamp(0.0, 1.0),
+                child: Container(
+                  width: tileSize,
+                  height: tileSize,
+                  decoration: _getTileDecoration(
+                    position.tile,
+                    glowIntensity,
+                    isInSelectionMode,
+                    selectionState.activePowerupType,
                   ),
-                ),
-              // Main tile
-              Transform.rotate(
-                angle: rotation,
-                child: Transform.scale(
-                  scale: scale,
-                  child: Opacity(
-                    opacity: pulseOpacity.clamp(0.0, 1.0),
-                    child: Container(
-                      width: tileSize,
-                      height: tileSize,
-                      decoration: BoxDecoration(
-                        color: Color(position.tile.colorValue),
-                        borderRadius: BorderRadius.circular(4),
-                        // Add selection border if in selection mode
-                        border:
-                            isInSelectionMode &&
-                                selectionState.activePowerupType != null
-                            ? Border.all(
-                                color: _getSelectionColor(
-                                  selectionState.activePowerupType!,
+                  child: Center(
+                    child: Text(
+                      position.tile.value.toString(),
+                      style: TextStyle(
+                        color: Color(position.tile.textColorValue),
+                        fontSize:
+                            position.tile.fontSize +
+                            (glowIntensity *
+                                4), // Slightly larger text for merged tiles
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'BubblegumSans',
+                        shadows: glowIntensity > 0
+                            ? [
+                                Shadow(
+                                  color: Color(position.tile.textColorValue)
+                                      .withValues(
+                                        alpha: (glowIntensity * 0.5).clamp(
+                                          0.0,
+                                          1.0,
+                                        ),
+                                      ),
+                                  blurRadius: 2 + (glowIntensity * 4),
+                                  offset: Offset.zero,
                                 ),
-                                width: 3,
-                              )
+                              ]
                             : null,
-                        boxShadow: _buildTileShadows(
-                          position.tile,
-                          glowIntensity,
-                          widget.gameState.isScenicMode,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          position.tile.value.toString(),
-                          style: TextStyle(
-                            color: Color(position.tile.textColorValue),
-                            fontSize:
-                                position.tile.fontSize +
-                                (glowIntensity *
-                                    4), // Slightly larger text for merged tiles
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'BubblegumSans',
-                            shadows: glowIntensity > 0
-                                ? [
-                                    Shadow(
-                                      color: Color(position.tile.textColorValue)
-                                          .withValues(
-                                            alpha: (glowIntensity * 0.5).clamp(
-                                              0.0,
-                                              1.0,
-                                            ),
-                                          ),
-                                      blurRadius: 2 + (glowIntensity * 4),
-                                      offset: Offset.zero,
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ],
+            ),
           ),
         );
       },
@@ -605,16 +550,9 @@ class _SlidingGameBoardState extends ConsumerState<SlidingGameBoard>
   }
 
   GridPosition? _getGridPositionFromOffset(Offset localPosition) {
-    // Calculate grid bounds
-    const gridWidth = 5 * tileSize + 6 * tileSpacing;
-    const gridHeight = 5 * tileSize + 6 * tileSpacing;
-
-    final offsetX = (boardSize - gridWidth) / 2;
-    final offsetY = (boardSize - gridHeight) / 2;
-
-    // Check if tap is within grid bounds
-    final relativeX = localPosition.dx - offsetX - tileSpacing;
-    final relativeY = localPosition.dy - offsetY - tileSpacing;
+    // Use pre-calculated constants for better performance
+    final relativeX = localPosition.dx - _offsetX - tileSpacing;
+    final relativeY = localPosition.dy - _offsetY - tileSpacing;
 
     if (relativeX < 0 || relativeY < 0) return null;
 
@@ -631,40 +569,33 @@ class _SlidingGameBoardState extends ConsumerState<SlidingGameBoard>
   }
 
   void _handlePanStart(DragStartDetails details) {
+    // Store start position for distance-based gesture detection
     _panStartPosition = details.localPosition;
-    AppLogger.userAction(
-      'PAN_START_SLIDING_BOARD',
-      data: {
-        'startPosition':
-            '(${details.localPosition.dx.toStringAsFixed(2)}, ${details.localPosition.dy.toStringAsFixed(2)})',
-        'isAnimating': _isAnimating,
-      },
-    );
+
+    // Minimal logging for better performance
+    if (AppConstants.enablePerformanceLogging) {
+      AppLogger.userAction(
+        'PAN_START',
+        data: {
+          'x': details.localPosition.dx.toInt(),
+          'y': details.localPosition.dy.toInt(),
+          'animating': _isAnimating,
+        },
+      );
+    }
   }
 
   void _handlePanEnd(DragEndDetails details) {
-    // Block gestures during animations
+    // Fast rejection checks for better performance
     if (_isAnimating) {
-      AppLogger.animation(
-        'GESTURE_BLOCKED_ANIMATION',
-        data: {
-          'reason': 'Animation in progress',
-          'animationValue': _moveController.value,
-        },
-      );
-      return;
+      return; // Block gestures during animations
     }
 
-    // Check debouncing
     if (!_gestureDebouncer.canProcessGesture()) {
-      AppLogger.userAction(
-        'GESTURE_DEBOUNCED_SLIDING_BOARD',
-        data: {'reason': 'Gesture debounced'},
-      );
-      return;
+      return; // Block rapid gestures
     }
 
-    // Use enhanced gesture analysis
+    // Optimized gesture analysis with distance-based detection
     final result = GestureUtils.analyzeSwipe(
       details,
       startPosition: _panStartPosition,
@@ -672,33 +603,23 @@ class _SlidingGameBoardState extends ConsumerState<SlidingGameBoard>
       customDistanceThreshold: AppConstants.swipeDistanceThreshold,
     );
 
-    AppLogger.userAction(
-      'SLIDING_BOARD_GESTURE_ANALYSIS',
-      data: {
-        'result': result.toString(),
-        'description': GestureUtils.getSwipeDescription(result),
-        'isValid': result.isValid,
-        'direction': result.direction?.toString(),
-      },
-    );
-
-    // Execute move if swipe is valid
+    // Execute move immediately if valid (no logging overhead)
     if (result.isValid && result.direction != null) {
-      AppLogger.userAction(
-        'SLIDING_BOARD_MOVE_EXECUTED',
-        data: {
-          'direction': result.direction.toString(),
-          'velocity': result.velocity.toStringAsFixed(2),
-          'ratio': result.directionRatio.toStringAsFixed(2),
-        },
-      );
       widget.onMove(result.direction!);
-    } else {
-      AppLogger.userAction(
-        'SLIDING_BOARD_MOVE_REJECTED',
-        data: {'reason': result.reason},
-      );
+
+      // Optional logging only if performance logging is enabled
+      if (AppConstants.enablePerformanceLogging) {
+        AppLogger.userAction(
+          'MOVE_EXECUTED',
+          data: {
+            'dir': result.direction.toString().split('.').last,
+            'vel': result.velocity.toInt(),
+            'conf': result.directionRatio.toStringAsFixed(1),
+          },
+        );
+      }
     }
+    // No logging for rejected gestures to improve performance
   }
 
   /// Get the selection color for a powerup type

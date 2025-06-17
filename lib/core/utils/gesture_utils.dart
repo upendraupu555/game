@@ -1,119 +1,120 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../domain/entities/tile_entity.dart';
 import '../constants/app_constants.dart';
 import '../logging/app_logger.dart';
 
-/// Enhanced gesture detection utility for reliable swipe recognition
+/// Optimized gesture detection utility for reliable 4-directional swipe recognition
 class GestureUtils {
   GestureUtils._();
 
-  /// Simplified swipe analysis for reliable gesture detection
+  /// Optimized swipe analysis for reliable 4-directional gesture detection
   static SwipeResult analyzeSwipe(
     DragEndDetails details, {
     Offset? startPosition,
     double? customVelocityThreshold,
     double? customDistanceThreshold,
   }) {
+    // Use distance-based detection if start position is available (more reliable)
+    if (startPosition != null) {
+      return _analyzeSwipeByDistance(
+        details,
+        startPosition,
+        customDistanceThreshold,
+      );
+    }
+
+    // Fallback to simplified velocity-based detection
+    return _analyzeSwipeByVelocity(details, customVelocityThreshold);
+  }
+
+  /// Distance-based swipe detection (primary method) - more reliable across devices
+  static SwipeResult _analyzeSwipeByDistance(
+    DragEndDetails details,
+    Offset startPosition,
+    double? customDistanceThreshold,
+  ) {
+    // Use velocity-based distance calculation with proper time integration
+    // Assume typical swipe duration of 150-200ms for mobile gestures
+    final velocity = details.velocity.pixelsPerSecond;
+    const swipeDuration = 0.15; // 150ms - typical fast swipe duration
+
+    // Calculate distance using velocity integration over time
+    final deltaX = velocity.dx * swipeDuration;
+    final deltaY = velocity.dy * swipeDuration;
+    final distance = math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+    final distanceThreshold =
+        customDistanceThreshold ?? AppConstants.swipeDistanceThreshold;
+
+    // Check minimum distance - must be a deliberate swipe
+    if (distance < distanceThreshold) {
+      return SwipeResult.invalid('Swipe too short');
+    }
+
+    // Simple cardinal direction detection - only 4 directions allowed
+    final absDeltaX = deltaX.abs();
+    final absDeltaY = deltaY.abs();
+
+    // Determine direction based on dominant axis (no diagonal support)
+    MoveDirection direction;
+    double confidence;
+
+    if (absDeltaX > absDeltaY) {
+      // Horizontal movement is dominant
+      direction = deltaX > 0 ? MoveDirection.right : MoveDirection.left;
+      confidence = absDeltaY > 0 ? absDeltaX / absDeltaY : 10.0;
+    } else {
+      // Vertical movement is dominant
+      direction = deltaY > 0 ? MoveDirection.down : MoveDirection.up;
+      confidence = absDeltaX > 0 ? absDeltaY / absDeltaX : 10.0;
+    }
+
+    // Reject overly diagonal gestures (enforce cardinal directions)
+    if (confidence < AppConstants.minimumSwipeRatio) {
+      return SwipeResult.invalid('Gesture too diagonal');
+    }
+
+    return SwipeResult.valid(direction, distance, confidence);
+  }
+
+  /// Simplified velocity-based detection (fallback method)
+  static SwipeResult _analyzeSwipeByVelocity(
+    DragEndDetails details,
+    double? customVelocityThreshold,
+  ) {
     final velocity = details.velocity.pixelsPerSecond;
     final dx = velocity.dx;
     final dy = velocity.dy;
-    final distance = velocity.distance;
+    final speed = velocity.distance;
 
-    // Use custom thresholds or defaults
     final velocityThreshold =
         customVelocityThreshold ?? AppConstants.swipeVelocityThreshold;
 
-    AppLogger.userAction(
-      'SWIPE_ANALYSIS_START',
-      data: {
-        'velocityX': dx.toStringAsFixed(2),
-        'velocityY': dy.toStringAsFixed(2),
-        'distance': distance.toStringAsFixed(2),
-        'velocityThreshold': velocityThreshold,
-      },
-    );
-
-    // Check minimum velocity threshold
-    if (distance < velocityThreshold) {
-      AppLogger.userAction(
-        'SWIPE_REJECTED_VELOCITY',
-        data: {
-          'reason': 'Velocity too low',
-          'distance': distance.toStringAsFixed(2),
-          'threshold': velocityThreshold,
-        },
-      );
-      return SwipeResult.invalid(
-        'Velocity too low: ${distance.toStringAsFixed(2)} < $velocityThreshold',
-      );
+    // Check minimum velocity
+    if (speed < velocityThreshold) {
+      return SwipeResult.invalid('Swipe too slow');
     }
 
-    // Check maximum velocity to prevent false positives
-    if (distance > AppConstants.maxSwipeVelocity) {
-      AppLogger.userAction(
-        'SWIPE_REJECTED_MAX_VELOCITY',
-        data: {
-          'reason': 'Velocity too high',
-          'distance': distance.toStringAsFixed(2),
-          'maxThreshold': AppConstants.maxSwipeVelocity,
-        },
-      );
-      return SwipeResult.invalid(
-        'Velocity too high: ${distance.toStringAsFixed(2)} > ${AppConstants.maxSwipeVelocity}',
-      );
+    // Simple direction detection based on velocity components
+    final direction = getSwipeDirection(dx, dy);
+    if (direction == null) {
+      return SwipeResult.invalid('No clear direction');
     }
 
-    // Calculate absolute values for comparison
+    // Calculate confidence based on velocity ratio
     final absDx = dx.abs();
     final absDy = dy.abs();
+    final confidence = absDx > absDy
+        ? (absDy > 0 ? absDx / absDy : 10.0)
+        : (absDx > 0 ? absDy / absDx : 10.0);
 
-    // Simplified direction detection - just check which axis is dominant
-    MoveDirection direction;
-    String dominantAxis;
-    double ratio = 1.0;
-
-    if (absDx > absDy) {
-      // Horizontal swipe
-      direction = dx > 0 ? MoveDirection.right : MoveDirection.left;
-      dominantAxis = 'horizontal';
-      ratio = absDy > 0 ? absDx / absDy : absDx;
-    } else {
-      // Vertical swipe
-      direction = dy > 0 ? MoveDirection.down : MoveDirection.up;
-      dominantAxis = 'vertical';
-      ratio = absDx > 0 ? absDy / absDx : absDy;
+    // Reject diagonal gestures using consistent threshold
+    if (confidence < AppConstants.minimumSwipeRatio) {
+      return SwipeResult.invalid('Gesture too diagonal');
     }
 
-    // Only reject if the gesture is extremely diagonal (less permissive than before)
-    if (ratio < AppConstants.minimumSwipeRatio && absDx > 0 && absDy > 0) {
-      AppLogger.userAction(
-        'SWIPE_REJECTED_DIRECTION',
-        data: {
-          'reason': 'Too diagonal',
-          'ratio': ratio.toStringAsFixed(2),
-          'minimumRatio': AppConstants.minimumSwipeRatio,
-          'absDx': absDx.toStringAsFixed(2),
-          'absDy': absDy.toStringAsFixed(2),
-        },
-      );
-      return SwipeResult.invalid(
-        'Too diagonal: ratio ${ratio.toStringAsFixed(2)} < ${AppConstants.minimumSwipeRatio}',
-      );
-    }
-
-    AppLogger.userAction(
-      'SWIPE_ACCEPTED',
-      data: {
-        'direction': direction.toString(),
-        'dominantAxis': dominantAxis,
-        'velocity': distance.toStringAsFixed(2),
-        'ratio': ratio.toStringAsFixed(2),
-        'dx': dx.toStringAsFixed(2),
-        'dy': dy.toStringAsFixed(2),
-      },
-    );
-
-    return SwipeResult.valid(direction, distance, ratio);
+    return SwipeResult.valid(direction, speed, confidence);
   }
 
   /// Simple direction detection based on velocity components
@@ -122,9 +123,9 @@ class GestureUtils {
     final absDy = dy.abs();
 
     // Return null if no clear movement
-    if (absDx < 10 && absDy < 10) return null;
+    if (absDx < 5 && absDy < 5) return null;
 
-    // Determine direction based on dominant axis
+    // Determine direction based on dominant axis (cardinal directions only)
     if (absDx > absDy) {
       return dx > 0 ? MoveDirection.right : MoveDirection.left;
     } else {
@@ -194,13 +195,13 @@ class SwipeResult {
   }
 }
 
-/// Debouncer for preventing rapid gesture triggers
+/// Optimized debouncer for preventing rapid gesture triggers while maintaining responsiveness
 class GestureDebouncer {
   DateTime? _lastGestureTime;
   final Duration _debounceDelay;
 
   GestureDebouncer({Duration? debounceDelay})
-    : _debounceDelay = debounceDelay ?? AppConstants.swipeDebounceDelay;
+    : _debounceDelay = debounceDelay ?? const Duration(milliseconds: 100);
 
   /// Check if enough time has passed since the last gesture
   bool canProcessGesture() {
@@ -216,13 +217,7 @@ class GestureDebouncer {
       return true;
     }
 
-    AppLogger.userAction(
-      'GESTURE_DEBOUNCED',
-      data: {
-        'timeSinceLastGesture': timeSinceLastGesture.inMilliseconds,
-        'debounceDelay': _debounceDelay.inMilliseconds,
-      },
-    );
+    // Reduced logging for better performance
     return false;
   }
 

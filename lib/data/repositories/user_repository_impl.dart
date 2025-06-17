@@ -4,6 +4,7 @@ import '../../domain/repositories/user_repository.dart';
 import '../datasources/user_local_datasource.dart';
 import '../datasources/supabase_auth_datasource.dart';
 import '../models/user_model.dart';
+import '../services/user_deletion_service.dart';
 import '../../core/logging/app_logger.dart';
 
 /// Implementation of user repository
@@ -11,8 +12,12 @@ import '../../core/logging/app_logger.dart';
 class UserRepositoryImpl implements UserRepository {
   final UserLocalDataSource _localDataSource;
   final SupabaseAuthDataSource _supabaseAuthDataSource;
+  late final UserDeletionService _deletionService;
 
-  UserRepositoryImpl(this._localDataSource, this._supabaseAuthDataSource);
+  UserRepositoryImpl(this._localDataSource, this._supabaseAuthDataSource) {
+    // Initialize deletion service with Supabase client
+    _deletionService = UserDeletionService(Supabase.instance.client);
+  }
 
   @override
   Future<UserEntity?> getCurrentUser() async {
@@ -180,25 +185,21 @@ class UserRepositoryImpl implements UserRepository {
         AppLogger.info('User signed out from Supabase', tag: 'UserRepository');
       }
 
-      if (currentUser != null) {
-        // Convert to guest user but keep the same game ID
-        final guestUser = currentUser.toGuest();
-        await saveUser(guestUser);
-        AppLogger.info(
-          'User converted to guest: ${guestUser.gameId}',
-          tag: 'UserRepository',
-        );
-        return guestUser;
-      } else {
-        // Create new guest user if no current user
-        final guestUser = await createGuestUser();
-        await saveUser(guestUser);
-        AppLogger.info(
-          'New guest user created: ${guestUser.gameId}',
-          tag: 'UserRepository',
-        );
-        return guestUser;
-      }
+      // Clear all user data to fix persistence bug
+      await clearAllUserData();
+      AppLogger.info(
+        'All user data cleared during logout',
+        tag: 'UserRepository',
+      );
+
+      // Create new guest user with fresh data
+      final guestUser = await createGuestUser();
+      await saveUser(guestUser);
+      AppLogger.info(
+        'New guest user created after logout: ${guestUser.gameId}',
+        tag: 'UserRepository',
+      );
+      return guestUser;
     } catch (e) {
       AppLogger.error('Logout failed', tag: 'UserRepository', error: e);
       throw Exception('Logout failed: $e');
@@ -293,11 +294,81 @@ class UserRepositoryImpl implements UserRepository {
   }
 
   @override
+  Future<void> resetPassword(String email) async {
+    try {
+      AppLogger.info(
+        'Requesting password reset for: $email',
+        tag: 'UserRepository',
+      );
+
+      await _supabaseAuthDataSource.resetPassword(email);
+
+      AppLogger.info(
+        'Password reset email sent successfully for: $email',
+        tag: 'UserRepository',
+      );
+    } catch (e) {
+      AppLogger.error(
+        'Failed to send password reset email',
+        tag: 'UserRepository',
+        error: e,
+      );
+      throw Exception('Failed to send password reset email: $e');
+    }
+  }
+
+  @override
   Future<void> clearAllUserData() async {
     try {
       await _localDataSource.clearAllUserData();
     } catch (e) {
       throw Exception('Failed to clear user data: $e');
+    }
+  }
+
+  @override
+  Future<void> deleteUserAccount() async {
+    try {
+      AppLogger.info(
+        'Attempting complete user account deletion',
+        tag: 'UserRepository',
+      );
+
+      final currentUser = await getCurrentUser();
+      if (currentUser == null || !currentUser.isAuthenticated) {
+        throw Exception('No authenticated user to delete');
+      }
+
+      // Use the enhanced deletion service for complete deletion
+      final deletionSuccessful = await _deletionService.deleteUserAccount();
+
+      if (!deletionSuccessful) {
+        throw Exception('User deletion service reported failure');
+      }
+
+      AppLogger.info(
+        'User account deleted successfully from Supabase',
+        tag: 'UserRepository',
+      );
+
+      // Clear all local user data
+      await clearAllUserData();
+      AppLogger.info(
+        'All local user data cleared after account deletion',
+        tag: 'UserRepository',
+      );
+
+      AppLogger.info(
+        'Complete user account deletion finished: ${currentUser.gameId}',
+        tag: 'UserRepository',
+      );
+    } catch (e) {
+      AppLogger.error(
+        'Complete account deletion failed',
+        tag: 'UserRepository',
+        error: e,
+      );
+      throw Exception('Account deletion failed: $e');
     }
   }
 }

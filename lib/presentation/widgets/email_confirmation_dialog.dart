@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/localization/localization_manager.dart';
 import '../../core/logging/app_logger.dart';
-import '../../core/navigation/navigation_service.dart';
 import '../providers/theme_providers.dart';
 import '../providers/user_providers.dart';
 
@@ -20,16 +19,18 @@ class EmailConfirmationDialog extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<EmailConfirmationDialog> createState() => _EmailConfirmationDialogState();
+  ConsumerState<EmailConfirmationDialog> createState() =>
+      _EmailConfirmationDialogState();
 }
 
-class _EmailConfirmationDialogState extends ConsumerState<EmailConfirmationDialog> {
+class _EmailConfirmationDialogState
+    extends ConsumerState<EmailConfirmationDialog> {
   bool _isResending = false;
 
   @override
   Widget build(BuildContext context) {
     final currentPrimaryColor = ref.watch(currentPrimaryColorProvider);
-    
+
     return AlertDialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppConstants.borderRadiusMedium),
@@ -45,10 +46,7 @@ class _EmailConfirmationDialogState extends ConsumerState<EmailConfirmationDialo
           Expanded(
             child: Text(
               LocalizationManager.translate(ref, 'email_not_confirmed_title'),
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -63,9 +61,11 @@ class _EmailConfirmationDialogState extends ConsumerState<EmailConfirmationDialo
               Container(
                 padding: const EdgeInsets.all(AppConstants.paddingSmall),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppConstants.borderRadiusSmall),
-                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(
+                    AppConstants.borderRadiusSmall,
+                  ),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
@@ -89,21 +89,25 @@ class _EmailConfirmationDialogState extends ConsumerState<EmailConfirmationDialo
               ),
               const SizedBox(height: AppConstants.paddingMedium),
             ],
-            
+
             // Main message
             Text(
               LocalizationManager.translate(ref, 'email_not_confirmed_message'),
               style: const TextStyle(fontSize: 14),
             ),
             const SizedBox(height: AppConstants.paddingMedium),
-            
+
             // Email display
             Container(
               padding: const EdgeInsets.all(AppConstants.paddingSmall),
               decoration: BoxDecoration(
-                color: currentPrimaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppConstants.borderRadiusSmall),
-                border: Border.all(color: currentPrimaryColor.withOpacity(0.3)),
+                color: currentPrimaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(
+                  AppConstants.borderRadiusSmall,
+                ),
+                border: Border.all(
+                  color: currentPrimaryColor.withValues(alpha: 0.3),
+                ),
               ),
               child: Row(
                 children: [
@@ -127,14 +131,14 @@ class _EmailConfirmationDialogState extends ConsumerState<EmailConfirmationDialo
               ),
             ),
             const SizedBox(height: AppConstants.paddingMedium),
-            
+
             // Instructions
             Text(
-              LocalizationManager.translate(ref, 'email_not_confirmed_instructions'),
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
+              LocalizationManager.translate(
+                ref,
+                'email_not_confirmed_instructions',
               ),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ],
         ),
@@ -145,16 +149,15 @@ class _EmailConfirmationDialogState extends ConsumerState<EmailConfirmationDialo
           onPressed: () => Navigator.of(context).pop(false),
           child: Text(LocalizationManager.translate(ref, 'cancel')),
         ),
-        
+
         // Use different email button
         TextButton(
-          onPressed: () {
-            Navigator.of(context).pop(false);
-            NavigationService.pushReplacementNamed(AppRoutes.login);
-          },
-          child: Text(LocalizationManager.translate(ref, 'use_different_email')),
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(
+            LocalizationManager.translate(ref, 'use_different_email'),
+          ),
         ),
-        
+
         // Resend confirmation button
         ElevatedButton(
           onPressed: _isResending ? null : _handleResendConfirmation,
@@ -252,9 +255,7 @@ Future<bool?> showEmailConfirmationDialog(
   return showDialog<bool>(
     context: context,
     barrierDismissible: false,
-    builder: (context) => EmailConfirmationDialog(
-      email: email,
-      errorMessage: errorMessage,
-    ),
+    builder: (context) =>
+        EmailConfirmationDialog(email: email, errorMessage: errorMessage),
   );
 }

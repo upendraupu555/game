@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../logging/app_logger.dart';
+import '../localization/localization_manager.dart';
 import '../../presentation/widgets/email_confirmation_dialog.dart';
+import 'error_handler.dart';
 
 /// Utility class for handling authentication errors
 /// Provides centralized error handling for Supabase authentication
@@ -208,6 +210,37 @@ class AuthErrorHandler {
     }
 
     return 'Please try again or contact support if the problem persists.';
+  }
+
+  /// Show authentication error dialog with user-friendly message
+  static void showAuthErrorDialog(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic error, {
+    String? email,
+    VoidCallback? onRetry,
+  }) {
+    // First try to handle email confirmation error
+    if (isEmailNotConfirmedError(error)) {
+      handleEmailConfirmationError(context, ref, error, email: email);
+      return;
+    }
+
+    // Use the centralized error handler for other auth errors
+    ErrorHandler.showErrorDialog(
+      context,
+      ref,
+      error.toString(),
+      title: LocalizationManager.translate(ref, 'error_dialog_title'),
+      actionText: onRetry != null
+          ? LocalizationManager.translate(ref, 'retry')
+          : null,
+      onAction: onRetry,
+      isAuthError: true,
+    );
+
+    // Log the error
+    logAuthError(error, context: 'login_screen');
   }
 }
 

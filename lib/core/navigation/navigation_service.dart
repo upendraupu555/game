@@ -12,7 +12,11 @@ import '../../presentation/screens/help_screen.dart';
 import '../../presentation/screens/feedback_screen.dart';
 import '../../presentation/screens/game_screen.dart';
 import '../../presentation/screens/login_screen.dart';
+import '../../presentation/screens/forgot_password_screen.dart';
+import '../../presentation/screens/leaderboard_screen.dart';
 import '../../presentation/screens/profile_screen.dart';
+import '../../presentation/screens/language_settings_screen.dart';
+import '../../presentation/screens/privacy_policy_screen.dart';
 
 /// Navigation service that handles route mapping and navigation logic
 /// This is the core service that maps routes to widgets
@@ -85,9 +89,13 @@ class NavigationService {
         }
         break;
 
+      case AppRoutes.leaderboard:
+        page = const LeaderboardScreen();
+        break;
+
       case AppRoutes.languageSettings:
         if (AppConfig.isFeatureEnabled('language_selection')) {
-          page = _buildLanguageSettingsScreen(arguments);
+          page = const LanguageSettingsScreen();
         } else {
           page = _buildFeatureDisabledScreen('Language Settings');
         }
@@ -97,8 +105,16 @@ class NavigationService {
         page = const LoginScreen();
         break;
 
+      case AppRoutes.forgotPassword:
+        page = const ForgotPasswordScreen();
+        break;
+
       case AppRoutes.profile:
         page = const ProfileScreen();
+        break;
+
+      case AppRoutes.privacyPolicy:
+        page = const PrivacyPolicyScreen();
         break;
 
       default:
@@ -107,23 +123,6 @@ class NavigationService {
     }
 
     return MaterialPageRoute(builder: (context) => page!, settings: settings);
-  }
-
-  /// Build language settings screen (placeholder for now)
-  static Widget _buildLanguageSettingsScreen(Map<String, dynamic>? arguments) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Language Settings')),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.language, size: 64),
-            SizedBox(height: 16),
-            Text('Language Settings Coming Soon!'),
-          ],
-        ),
-      ),
-    );
   }
 
   /// Build feature disabled screen

@@ -9,14 +9,16 @@ import '../../domain/usecases/localization_usecases.dart';
 import 'theme_providers.dart';
 
 // Data layer providers
-final localizationAssetDataSourceProvider = Provider<LocalizationAssetDataSource>((ref) {
-  return LocalizationAssetDataSourceImpl();
-});
+final localizationAssetDataSourceProvider =
+    Provider<LocalizationAssetDataSource>((ref) {
+      return LocalizationAssetDataSourceImpl();
+    });
 
-final localizationLocalDataSourceProvider = Provider<LocalizationLocalDataSource>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  return LocalizationLocalDataSourceImpl(prefs);
-});
+final localizationLocalDataSourceProvider =
+    Provider<LocalizationLocalDataSource>((ref) {
+      final prefs = ref.watch(sharedPreferencesProvider);
+      return LocalizationLocalDataSourceImpl(prefs);
+    });
 
 final localizationRepositoryProvider = Provider<LocalizationRepository>((ref) {
   final assetDataSource = ref.watch(localizationAssetDataSourceProvider);
@@ -25,20 +27,23 @@ final localizationRepositoryProvider = Provider<LocalizationRepository>((ref) {
 });
 
 // Use case providers
-final getCurrentLocalizationUseCaseProvider = Provider<GetCurrentLocalizationUseCase>((ref) {
-  final repository = ref.watch(localizationRepositoryProvider);
-  return GetCurrentLocalizationUseCase(repository);
-});
+final getCurrentLocalizationUseCaseProvider =
+    Provider<GetCurrentLocalizationUseCase>((ref) {
+      final repository = ref.watch(localizationRepositoryProvider);
+      return GetCurrentLocalizationUseCase(repository);
+    });
 
 final changeLocaleUseCaseProvider = Provider<ChangeLocaleUseCase>((ref) {
   final repository = ref.watch(localizationRepositoryProvider);
   return ChangeLocaleUseCase(repository);
 });
 
-final getAvailableLocalesUseCaseProvider = Provider<GetAvailableLocalesUseCase>((ref) {
-  final repository = ref.watch(localizationRepositoryProvider);
-  return GetAvailableLocalesUseCase(repository);
-});
+final getAvailableLocalesUseCaseProvider = Provider<GetAvailableLocalesUseCase>(
+  (ref) {
+    final repository = ref.watch(localizationRepositoryProvider);
+    return GetAvailableLocalesUseCase(repository);
+  },
+);
 
 final resetLocaleUseCaseProvider = Provider<ResetLocaleUseCase>((ref) {
   final repository = ref.watch(localizationRepositoryProvider);
@@ -46,16 +51,19 @@ final resetLocaleUseCaseProvider = Provider<ResetLocaleUseCase>((ref) {
 });
 
 // Localization state notifier
-class LocalizationNotifier extends StateNotifier<AsyncValue<LocalizationEntity>> {
+class LocalizationNotifier
+    extends StateNotifier<AsyncValue<LocalizationEntity>> {
   LocalizationNotifier(this._ref) : super(const AsyncValue.loading()) {
-    _loadCurrentLocalization();
+    loadCurrentLocalization();
   }
 
   final Ref _ref;
 
-  Future<void> _loadCurrentLocalization() async {
+  Future<void> loadCurrentLocalization() async {
     try {
-      final getCurrentUseCase = _ref.read(getCurrentLocalizationUseCaseProvider);
+      final getCurrentUseCase = _ref.read(
+        getCurrentLocalizationUseCaseProvider,
+      );
       final localization = await getCurrentUseCase.execute();
       state = AsyncValue.data(localization);
     } catch (error, stackTrace) {
@@ -85,9 +93,12 @@ class LocalizationNotifier extends StateNotifier<AsyncValue<LocalizationEntity>>
 }
 
 // Main localization provider
-final localizationProvider = StateNotifierProvider<LocalizationNotifier, AsyncValue<LocalizationEntity>>((ref) {
-  return LocalizationNotifier(ref);
-});
+final localizationProvider =
+    StateNotifierProvider<LocalizationNotifier, AsyncValue<LocalizationEntity>>(
+      (ref) {
+        return LocalizationNotifier(ref);
+      },
+    );
 
 // Computed providers for UI convenience
 final currentLocalizationProvider = Provider<LocalizationEntity?>((ref) {

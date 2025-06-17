@@ -90,6 +90,14 @@ final getUserDisplayInfoUseCaseProvider = Provider<GetUserDisplayInfoUseCase>((
   return GetUserDisplayInfoUseCase(repository);
 });
 
+/// Provider for delete user account use case
+final deleteUserAccountUseCaseProvider = Provider<DeleteUserAccountUseCase>((
+  ref,
+) {
+  final repository = ref.watch(userRepositoryProvider);
+  return DeleteUserAccountUseCase(repository);
+});
+
 /// State notifier for user management
 class UserNotifier extends StateNotifier<AsyncValue<UserEntity>> {
   final Ref _ref;
@@ -381,6 +389,31 @@ class UserNotifier extends StateNotifier<AsyncValue<UserEntity>> {
     }
   }
 
+  Future<void> deleteUserAccount() async {
+    try {
+      final deleteAccountUseCase = _ref.read(deleteUserAccountUseCaseProvider);
+      await deleteAccountUseCase.execute();
+
+      // Create new guest user after account deletion
+      final repository = _ref.read(userRepositoryProvider);
+      final guestUser = await repository.createGuestUser();
+      await repository.saveUser(guestUser);
+
+      state = AsyncValue.data(guestUser);
+      AppLogger.info(
+        'User account deleted, converted to guest',
+        tag: 'UserNotifier',
+      );
+    } catch (error, stackTrace) {
+      AppLogger.error(
+        'Account deletion failed',
+        tag: 'UserNotifier',
+        error: error,
+      );
+      state = AsyncValue.error(error, stackTrace);
+    }
+  }
+
   Future<void> updateProfile(UserEntity updatedUser) async {
     try {
       final updateUseCase = _ref.read(updateUserProfileUseCaseProvider);
@@ -428,6 +461,31 @@ class UserNotifier extends StateNotifier<AsyncValue<UserEntity>> {
         );
       }
     });
+  }
+
+  /// Reset password for user
+  Future<void> resetPassword(String email) async {
+    try {
+      AppLogger.info(
+        'Requesting password reset for email: $email',
+        tag: 'UserNotifier',
+      );
+
+      final userRepository = _ref.read(userRepositoryProvider);
+      await userRepository.resetPassword(email);
+
+      AppLogger.info(
+        'Password reset email sent successfully',
+        tag: 'UserNotifier',
+      );
+    } catch (e) {
+      AppLogger.error(
+        'Failed to send password reset email',
+        tag: 'UserNotifier',
+        error: e,
+      );
+      rethrow;
+    }
   }
 }
 

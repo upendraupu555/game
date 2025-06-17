@@ -138,10 +138,24 @@ class AppConstants {
       250; // Optimized for smooth movement
   static const int animationDurationSlow = 400; // Reduced to prevent lag
 
-  // Performance optimization constants
-  static const int maxConcurrentAnimations = 25; // Limit for 5x5 board
+  // Performance optimization constants - optimized for 60fps
+  static const int maxConcurrentAnimations =
+      15; // Reduced for better performance
   static const bool enableAnimationOptimizations = true;
   static const bool enablePerformanceLogging = false; // Disable in production
+
+  // Animation performance settings
+  static const Duration tileAnimationDuration = Duration(milliseconds: 150);
+  static const Duration mergeAnimationDuration = Duration(milliseconds: 200);
+  static const int maxAnimationFrameRate = 60;
+
+  // Memory management settings
+  static const int maxCacheSize = 100; // Maximum cached position calculations
+  static const Duration cacheCleanupInterval = Duration(minutes: 5);
+
+  // UI performance settings
+  static const bool useRepaintBoundaries = true;
+  static const bool optimizeRebuilds = true;
 
   // ==================== TEXT CONSTANTS ====================
 
@@ -193,6 +207,11 @@ class AppConstants {
   static const String errorSavingTheme = 'Failed to save theme settings';
   static const String errorClearingTheme = 'Failed to clear theme settings';
   static const String errorResetTheme = 'Failed to reset theme settings';
+  static const String errorLoadingFont = 'Error loading font';
+  static const String errorSavingFont = 'Failed to save font settings';
+  static const String errorLoadingLocalization = 'Failed to load localization';
+  static const String errorNetwork = 'Network connection error';
+  static const String errorUnknown = 'Unknown error occurred';
 
   // ==================== TESTING CONSTANTS ====================
 
@@ -325,6 +344,13 @@ class AppConstants {
   static const String purchaseStatusFailed = 'failed';
   static const String purchaseStatusRefunded = 'refunded';
 
+  // ==================== FEATURE FLAGS ====================
+
+  // TODO: Temporary feature flags for disabling sound and font customization
+  // Set these to true to re-enable the features
+  static const bool enableSoundSystem = false; // Temporarily disabled
+  static const bool enableFontCustomization = false; // Temporarily disabled
+
   // ==================== SOUND CONSTANTS ====================
 
   // Sound settings storage key
@@ -356,8 +382,8 @@ class AppConstants {
 
   // Powerup acquisition thresholds
   static const int powerupTileFreezeScoreThreshold = 1000;
-  static const int powerupMergeBoostScoreThreshold = 2500;
-  static const int powerupDoubleMergeScoreThreshold = 5000;
+  static const int powerupUndoMoveScoreThreshold = 2500;
+  static const int powerupShuffleBoardScoreThreshold = 5000;
   static const int powerupTileDestroyerScoreThreshold = 7500;
   static const int powerupValueUpgradeScoreThreshold = 10000;
   static const int powerupRowClearScoreThreshold = 12000;
@@ -371,7 +397,6 @@ class AppConstants {
 
   // Powerup durations (in moves)
   static const int powerupTileFreezeDuration = 5;
-  static const int powerupMergeBoostDuration = 3;
   static const int powerupBlockerShieldDuration = 3;
   static const int powerupLockTileDuration = 5;
 
@@ -403,25 +428,32 @@ class AppConstants {
 
   // ==================== GESTURE CONSTANTS ====================
 
-  // Simplified swipe detection thresholds for better responsiveness
+  // Optimized swipe detection thresholds for reliable 4-directional gestures
   static const double swipeVelocityThreshold =
-      50.0; // pixels/second - reduced for better sensitivity
+      30.0; // pixels/second - optimized for better sensitivity
   static const double swipeDistanceThreshold =
-      15.0; // minimum distance in pixels - reduced for easier detection
+      15.0; // minimum distance in pixels - optimized for sensitivity while preventing accidental touches
   static const Duration swipeDebounceDelay = Duration(
-    milliseconds: 50,
-  ); // reduced for better responsiveness
+    milliseconds: 100,
+  ); // optimized for responsiveness without double-triggers
 
-  // Simplified gesture sensitivity settings
+  // Strict cardinal direction enforcement
   static const double minimumSwipeRatio =
-      1.2; // reduced from 1.5 for more permissive diagonal detection
+      1.5; // enforces clear cardinal directions only
   static const double maxSwipeVelocity =
-      3000.0; // reduced to prevent overly fast gestures
+      5000.0; // allows fast gestures while preventing false positives
 
   // Animation conflict prevention
   static const Duration gestureBlockDuration = Duration(milliseconds: 200);
   static const double animationBlockThreshold =
       0.1; // block gestures during animations
+
+  // ==================== KEYBOARD INPUT CONSTANTS ====================
+
+  // Keyboard input debouncing
+  static const Duration keyboardDebounceDelay = Duration(
+    milliseconds: 150,
+  ); // Slightly longer than swipe for key repeat prevention
 
   // ==================== ADVERTISEMENT CONSTANTS ====================
 
@@ -456,6 +488,20 @@ class AppConstants {
       '${AppConfig.bundleId}_ad_completed_games_count';
   static const String adLastInterstitialShownKey =
       '${AppConfig.bundleId}_ad_last_interstitial_shown';
+
+  // ==================== LEADERBOARD CONSTANTS ====================
+
+  // Leaderboard configuration
+  static const int maxLeaderboardEntries = 50;
+  static const int minScoreThreshold =
+      0; // Allow all scores for 50 most recent games
+  static const String leaderboardStorageKey =
+      '${AppConfig.bundleId}_leaderboard_data';
+
+  // Game mode identifiers for leaderboard
+  static const String gameModeClassic = 'Classic';
+  static const String gameModeTimeAttack = 'Time Attack';
+  static const String gameModeScenicMode = 'Scenic';
 
   // ==================== PAYMENT CONSTANTS ====================
 
@@ -500,9 +546,11 @@ class AppRoutes {
   static const String home = '/';
   static const String gameModeSelection = '/game-mode-selection';
   static const String game = '/game';
+  static const String leaderboard = '/leaderboard';
   static const String about = '/about';
   static const String help = '/help';
   static const String feedback = '/feedback';
+  static const String privacyPolicy = '/privacy-policy';
 
   // Settings routes
   static const String settings = '/settings';
@@ -513,21 +561,25 @@ class AppRoutes {
 
   // User routes
   static const String login = '/login';
+  static const String forgotPassword = '/forgot-password';
   static const String profile = '/profile';
 
   // Route names for analytics/logging
   static const String homeRouteName = 'home';
   static const String gameModeSelectionRouteName = 'game_mode_selection';
   static const String gameRouteName = 'game';
+  static const String leaderboardRouteName = 'leaderboard';
   static const String aboutRouteName = 'about';
   static const String helpRouteName = 'help';
   static const String feedbackRouteName = 'feedback';
+  static const String privacyPolicyRouteName = 'privacy_policy';
   static const String settingsRouteName = 'settings';
   static const String themeSettingsRouteName = 'theme_settings';
   static const String fontSettingsRouteName = 'font_settings';
   static const String soundSettingsRouteName = 'sound_settings';
   static const String languageSettingsRouteName = 'language_settings';
   static const String loginRouteName = 'login';
+  static const String forgotPasswordRouteName = 'forgot_password';
   static const String profileRouteName = 'profile';
 
   // Default route from configuration

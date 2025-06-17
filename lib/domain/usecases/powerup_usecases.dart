@@ -2,6 +2,7 @@ import '../entities/game_entity.dart';
 import '../entities/powerup_entity.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/logging/app_logger.dart';
+import 'interactive_powerup_usecases.dart';
 
 /// Use case for checking if a powerup should be awarded based on score
 class CheckPowerupAwardUseCase {
@@ -28,18 +29,24 @@ class CheckPowerupAwardUseCase {
 
       // Randomly select powerups to award
       availablePowerupTypes.shuffle();
-      final selectedPowerups = availablePowerupTypes.take(powerupsToAward).toList();
+      final selectedPowerups = availablePowerupTypes
+          .take(powerupsToAward)
+          .toList();
 
       awardedPowerups.addAll(selectedPowerups);
     }
 
-    AppLogger.debug('🎁 Checking powerup awards', tag: 'CheckPowerupAwardUseCase', data: {
-      'score': score,
-      'powerupsEarned': powerupsEarned,
-      'currentPowerupsUnlocked': currentPowerupsUnlocked,
-      'awardedPowerups': awardedPowerups.map((p) => p.name).toList(),
-      'availablePowerups': gameState.availablePowerups.length,
-    });
+    AppLogger.debug(
+      '🎁 Checking powerup awards',
+      tag: 'CheckPowerupAwardUseCase',
+      data: {
+        'score': score,
+        'powerupsEarned': powerupsEarned,
+        'currentPowerupsUnlocked': currentPowerupsUnlocked,
+        'awardedPowerups': awardedPowerups.map((p) => p.name).toList(),
+        'availablePowerups': gameState.availablePowerups.length,
+      },
+    );
 
     return awardedPowerups;
   }
@@ -61,49 +68,119 @@ class CheckPowerupAwardUseCase {
 
 /// Use case for activating a powerup
 class ActivatePowerupUseCase {
-  ActivatePowerupUseCase();
+  final ExecuteValueUpgradeUseCase _valueUpgradeUseCase;
+  final ExecuteUndoMoveUseCase _undoMoveUseCase;
+  final ExecuteShuffleBoardUseCase _shuffleBoardUseCase;
+
+  ActivatePowerupUseCase()
+    : _valueUpgradeUseCase = ExecuteValueUpgradeUseCase(),
+      _undoMoveUseCase = ExecuteUndoMoveUseCase(),
+      _shuffleBoardUseCase = ExecuteShuffleBoardUseCase();
 
   /// Activate a powerup if available
   GameEntity execute(GameEntity gameState, PowerupType powerupType) {
-    print('🔧 ActivatePowerupUseCase.execute called with powerupType: ${powerupType.name}');
+    AppLogger.debug(
+      'ActivatePowerupUseCase.execute called',
+      tag: 'ActivatePowerupUseCase',
+      data: {'powerupType': powerupType.name},
+    );
 
     // Check if powerup is available
-    final hasAvailablePowerup = gameState.availablePowerups.any((p) => p.type == powerupType);
-    print('🔍 Checking if powerup is available: $hasAvailablePowerup');
-    print('📋 Available powerups: ${gameState.availablePowerups.map((p) => '${p.type.name}(available:${p.isAvailable})').toList()}');
+    final hasAvailablePowerup = gameState.availablePowerups.any(
+      (p) => p.type == powerupType,
+    );
 
     if (!hasAvailablePowerup) {
-      print('❌ ActivatePowerupUseCase: Powerup not available');
-      AppLogger.warning('❌ Powerup not available', tag: 'ActivatePowerupUseCase', data: {
-        'powerupType': powerupType.name,
-        'availablePowerups': gameState.availablePowerups.map((p) => p.type.name).toList(),
-      });
+      AppLogger.warning(
+        'Powerup not available',
+        tag: 'ActivatePowerupUseCase',
+        data: {
+          'powerupType': powerupType.name,
+          'availablePowerups': gameState.availablePowerups
+              .map((p) => p.type.name)
+              .toList(),
+        },
+      );
       return gameState;
     }
 
     // Check if powerup was already used
     final isAlreadyUsed = gameState.isPowerupUsed(powerupType);
-    print('🔍 Checking if powerup was already used: $isAlreadyUsed');
 
     if (isAlreadyUsed) {
-      print('❌ ActivatePowerupUseCase: Powerup already used');
-      AppLogger.warning('❌ Powerup already used', tag: 'ActivatePowerupUseCase', data: {
-        'powerupType': powerupType.name,
-      });
+      AppLogger.warning(
+        'Powerup already used',
+        tag: 'ActivatePowerupUseCase',
+        data: {'powerupType': powerupType.name},
+      );
       return gameState;
     }
 
-    print('✅ ActivatePowerupUseCase: Calling gameState.activatePowerup...');
-    final newGameState = gameState.activatePowerup(powerupType);
-    print('✅ ActivatePowerupUseCase: gameState.activatePowerup completed');
-    print('📊 Result: availablePowerups=${newGameState.availablePowerups.length}, activePowerups=${newGameState.activePowerups.length}');
+    // Handle instant effect powerups
+    if ([
+      PowerupType.valueUpgrade,
+      PowerupType.undoMove,
+      PowerupType.shuffleBoard,
+    ].contains(powerupType)) {
+      // Remove the powerup from available list and mark as used
+      final newAvailablePowerups = List<PowerupEntity>.from(
+        gameState.availablePowerups,
+      )..removeWhere((p) => p.type == powerupType);
 
-    AppLogger.userAction('POWERUP_ACTIVATED', data: {
-      'powerupType': powerupType.name,
-      'powerupIcon': powerupType.icon,
-      'duration': powerupType.defaultDuration,
-      'score': gameState.score,
-    });
+      final newUsedPowerupTypes = Set<PowerupType>.from(
+        gameState.usedPowerupTypes,
+      )..add(powerupType);
+
+      final stateAfterPowerupConsumption = gameState.copyWith(
+        availablePowerups: newAvailablePowerups,
+        usedPowerupTypes: newUsedPowerupTypes,
+      );
+
+      // Apply the appropriate instant effect
+      GameEntity newGameState;
+      switch (powerupType) {
+        case PowerupType.valueUpgrade:
+          newGameState = _valueUpgradeUseCase.execute(
+            stateAfterPowerupConsumption,
+          );
+          break;
+        case PowerupType.undoMove:
+          newGameState = _undoMoveUseCase.execute(stateAfterPowerupConsumption);
+          break;
+        case PowerupType.shuffleBoard:
+          newGameState = _shuffleBoardUseCase.execute(
+            stateAfterPowerupConsumption,
+          );
+          break;
+        default:
+          newGameState = stateAfterPowerupConsumption;
+      }
+
+      AppLogger.userAction(
+        'POWERUP_ACTIVATED',
+        data: {
+          'powerupType': powerupType.name,
+          'powerupIcon': powerupType.icon,
+          'duration': powerupType.defaultDuration,
+          'score': newGameState.score,
+        },
+      );
+
+      return newGameState;
+    }
+
+    // For other powerups, use the standard activation
+    final newGameState = gameState.activatePowerup(powerupType);
+
+    AppLogger.userAction(
+      'POWERUP_ACTIVATED',
+      data: {
+        'powerupType': powerupType.name,
+        'powerupIcon': powerupType.icon,
+        'duration': powerupType.defaultDuration,
+        'score': newGameState.score,
+      },
+    );
 
     return newGameState;
   }
@@ -123,54 +200,79 @@ class ProcessPowerupEffectsUseCase {
 
     // Log expired powerups
     final expiredPowerups = gameState.activePowerups
-        .where((powerup) => !updatedGameState.activePowerups.any((p) => p.id == powerup.id))
+        .where(
+          (powerup) =>
+              !updatedGameState.activePowerups.any((p) => p.id == powerup.id),
+        )
         .toList();
 
     for (final expiredPowerup in expiredPowerups) {
-      AppLogger.debug('⏰ Powerup expired', tag: 'ProcessPowerupEffectsUseCase', data: {
-        'powerupType': expiredPowerup.type.name,
-        'powerupIcon': expiredPowerup.type.icon,
-      });
+      AppLogger.debug(
+        '⏰ Powerup expired',
+        tag: 'ProcessPowerupEffectsUseCase',
+        data: {
+          'powerupType': expiredPowerup.type.name,
+          'powerupIcon': expiredPowerup.type.icon,
+        },
+      );
     }
 
     return updatedGameState;
   }
 }
 
+/// Result of attempting to add a powerup
+enum AddPowerupResult { success, inventoryFull, alreadyExists }
+
 /// Use case for adding powerups to the game state
 class AddPowerupUseCase {
   AddPowerupUseCase();
 
   /// Add a powerup to the available powerups list
-  GameEntity execute(GameEntity gameState, PowerupType powerupType) {
+  /// Returns a tuple of (GameEntity, AddPowerupResult) to indicate the result
+  (GameEntity, AddPowerupResult) execute(
+    GameEntity gameState,
+    PowerupType powerupType,
+  ) {
     // Check if inventory is full
-    if (gameState.availablePowerups.length >= AppConstants.maxPowerupsInInventory) {
-      AppLogger.warning('📦 Powerup inventory full', tag: 'AddPowerupUseCase', data: {
-        'powerupType': powerupType.name,
-        'inventorySize': gameState.availablePowerups.length,
-        'maxInventorySize': AppConstants.maxPowerupsInInventory,
-      });
-      return gameState;
+    if (gameState.availablePowerups.length >=
+        AppConstants.maxPowerupsInInventory) {
+      AppLogger.warning(
+        '📦 Powerup inventory full',
+        tag: 'AddPowerupUseCase',
+        data: {
+          'powerupType': powerupType.name,
+          'inventorySize': gameState.availablePowerups.length,
+          'maxInventorySize': AppConstants.maxPowerupsInInventory,
+        },
+      );
+      return (gameState, AddPowerupResult.inventoryFull);
     }
 
     // Check if powerup already exists
     if (gameState.availablePowerups.any((p) => p.type == powerupType)) {
-      AppLogger.warning('🔄 Powerup already in inventory', tag: 'AddPowerupUseCase', data: {
-        'powerupType': powerupType.name,
-      });
-      return gameState;
+      AppLogger.warning(
+        '🔄 Powerup already in inventory',
+        tag: 'AddPowerupUseCase',
+        data: {'powerupType': powerupType.name},
+      );
+      return (gameState, AddPowerupResult.alreadyExists);
     }
 
     final powerup = PowerupEntity.create(powerupType);
     final newGameState = gameState.addPowerup(powerup);
 
-    AppLogger.debug('🎁 Powerup added to inventory', tag: 'AddPowerupUseCase', data: {
-      'powerupType': powerupType.name,
-      'powerupIcon': powerupType.icon,
-      'inventorySize': newGameState.availablePowerups.length,
-    });
+    AppLogger.debug(
+      '🎁 Powerup added to inventory',
+      tag: 'AddPowerupUseCase',
+      data: {
+        'powerupType': powerupType.name,
+        'powerupIcon': powerupType.icon,
+        'inventorySize': newGameState.availablePowerups.length,
+      },
+    );
 
-    return newGameState;
+    return (newGameState, AddPowerupResult.success);
   }
 }
 
@@ -183,30 +285,18 @@ class CheckTileSpawnPreventionUseCase {
     final isTileFreezeActive = gameState.isTileFreezeActive;
 
     if (isTileFreezeActive) {
-      AppLogger.debug('🧊 Tile spawning prevented by Tile Freeze', tag: 'CheckTileSpawnPreventionUseCase', data: {
-        'tileFreezeMovesRemaining': gameState.getActivePowerup(PowerupType.tileFreeze)?.movesRemaining,
-      });
+      AppLogger.debug(
+        '🧊 Tile spawning prevented by Tile Freeze',
+        tag: 'CheckTileSpawnPreventionUseCase',
+        data: {
+          'tileFreezeMovesRemaining': gameState
+              .getActivePowerup(PowerupType.tileFreeze)
+              ?.movesRemaining,
+        },
+      );
     }
 
     return isTileFreezeActive;
-  }
-}
-
-/// Use case for checking if merge boost is active (allows different value merges)
-class CheckMergeBoostUseCase {
-  CheckMergeBoostUseCase();
-
-  /// Check if merge boost is active, allowing tiles with different values to merge
-  bool execute(GameEntity gameState) {
-    final isMergeBoostActive = gameState.isMergeBoostActive;
-
-    if (isMergeBoostActive) {
-      AppLogger.debug('🔄 Merge boost active', tag: 'CheckMergeBoostUseCase', data: {
-        'mergeBoostMovesRemaining': gameState.getActivePowerup(PowerupType.mergeBoost)?.movesRemaining,
-      });
-    }
-
-    return isMergeBoostActive;
   }
 }
 
@@ -219,9 +309,15 @@ class CheckBlockerShieldUseCase {
     final isBlockerShieldActive = gameState.isBlockerShieldActive;
 
     if (isBlockerShieldActive) {
-      AppLogger.debug('🛡️ Blocker shield active', tag: 'CheckBlockerShieldUseCase', data: {
-        'blockerShieldMovesRemaining': gameState.getActivePowerup(PowerupType.blockerShield)?.movesRemaining,
-      });
+      AppLogger.debug(
+        '🛡️ Blocker shield active',
+        tag: 'CheckBlockerShieldUseCase',
+        data: {
+          'blockerShieldMovesRemaining': gameState
+              .getActivePowerup(PowerupType.blockerShield)
+              ?.movesRemaining,
+        },
+      );
     }
 
     return isBlockerShieldActive;
@@ -265,9 +361,9 @@ class PowerupVisualEffect {
     switch (type) {
       case PowerupType.tileFreeze:
         return 0xFF2196F3; // Blue
-      case PowerupType.mergeBoost:
+      case PowerupType.undoMove:
         return 0xFF9C27B0; // Purple
-      case PowerupType.doubleMerge:
+      case PowerupType.shuffleBoard:
         return 0xFFFFD700; // Gold
       case PowerupType.blockerShield:
         return 0xFF4CAF50; // Green

@@ -3,6 +3,8 @@ PODS:
     - Flutter
   - audioplayers_darwin (0.0.1):
     - Flutter
+  - connectivity_plus (0.0.1):
+    - Flutter
   - Flutter (1.0.0)
   - fluttertoast (0.0.2):
     - Flutter
@@ -34,6 +36,7 @@ PODS:
 DEPENDENCIES:
   - app_links (from `.symlinks/plugins/app_links/ios`)
   - audioplayers_darwin (from `.symlinks/plugins/audioplayers_darwin/ios`)
+  - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
   - Flutter (from `Flutter`)
   - fluttertoast (from `.symlinks/plugins/fluttertoast/ios`)
   - google_mobile_ads (from `.symlinks/plugins/google_mobile_ads/ios`)
@@ -55,6 +58,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/app_links/ios"
   audioplayers_darwin:
     :path: ".symlinks/plugins/audioplayers_darwin/ios"
+  connectivity_plus:
+    :path: ".symlinks/plugins/connectivity_plus/ios"
   Flutter:
     :path: Flutter
   fluttertoast:
@@ -77,6 +82,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   app_links: f3e17e4ee5e357b39d8b95290a9b2c299fca71c6
   audioplayers_darwin: 877d9a4d06331c5c374595e46e16453ac7eafa40
+  connectivity_plus: 2a701ffec2c0ae28a48cf7540e279787e77c447d
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
   fluttertoast: 21eecd6935e7064cc1fcb733a4c5a428f3f24f0f
   Google-Mobile-Ads-SDK: 14f57f2dc33532a24db288897e26494640810407

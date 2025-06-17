@@ -139,7 +139,7 @@ class PowerupTray extends ConsumerWidget {
               '${availablePowerups.length}/${AppConstants.maxPowerupsInInventory}',
               style: TextStyle(
                 fontSize: 12,
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
           ],
@@ -159,9 +159,7 @@ class PowerupTray extends ConsumerWidget {
               final isEnabled =
                   isGameActive && powerup.isAvailable && !isActive;
 
-              print(
-                '🎮 PowerupTray: powerup=${powerup.type.name}, isGameActive=$isGameActive, powerup.isAvailable=${powerup.isAvailable}, isActive=$isActive, isEnabled=$isEnabled',
-              );
+              // Debug logging removed for performance
 
               return PowerupButton(
                 powerup: powerup,
@@ -193,14 +191,14 @@ class PowerupTray extends ConsumerWidget {
         borderRadius: BorderRadius.circular(AppConstants.borderRadiusMedium),
         color: theme.colorScheme.surface,
         border: Border.all(
-          color: theme.colorScheme.outline.withOpacity(0.3),
+          color: theme.colorScheme.outline.withValues(alpha: 0.3),
           width: 2.0,
           style: BorderStyle.solid,
         ),
       ),
       child: Icon(
         Icons.add,
-        color: theme.colorScheme.outline.withOpacity(0.5),
+        color: theme.colorScheme.outline.withValues(alpha: 0.5),
         size: 24,
       ),
     );
@@ -210,7 +208,7 @@ class PowerupTray extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(AppConstants.paddingSmall),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(AppConstants.borderRadiusSmall),
       ),
       child: Row(
@@ -226,7 +224,7 @@ class PowerupTray extends ConsumerWidget {
               'Reach score milestones to unlock powerups!',
               style: TextStyle(
                 fontSize: 12,
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
           ),
@@ -255,98 +253,104 @@ class CompactPowerupTray extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
-    return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppConstants.paddingMedium,
-        vertical: AppConstants.paddingSmall,
-      ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.95),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4.0,
-            offset: const Offset(0, -1),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Active powerups
-          if (activePowerups.isNotEmpty) ...[
+    return RepaintBoundary(
+      child: Container(
+        height: 80,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppConstants.paddingMedium,
+          vertical: AppConstants.paddingSmall,
+        ),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withValues(alpha: 0.95),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 4.0,
+              offset: const Offset(0, -1),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Active powerups
+            if (activePowerups.isNotEmpty) ...[
+              Expanded(
+                flex: 2,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: activePowerups
+                        .map(
+                          (powerup) => Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ActivePowerupIndicator(powerup: powerup),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 40,
+                color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            ],
+
+            // Available powerups
             Expanded(
-              flex: 2,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: activePowerups
-                      .map(
-                        (powerup) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ActivePowerupIndicator(powerup: powerup),
+              flex: 3,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: List.generate(
+                  AppConstants.maxPowerupsInInventory.clamp(0, 3),
+                  (index) {
+                    if (index < availablePowerups.length) {
+                      final powerup = availablePowerups[index];
+                      // Check if this powerup type is currently active
+                      final isActive = activePowerups.any(
+                        (p) => p.type == powerup.type,
+                      );
+                      return PowerupButton(
+                        powerup: powerup,
+                        onTap: () => onPowerupTap(powerup.type),
+                        isEnabled:
+                            isGameActive && powerup.isAvailable && !isActive,
+                        showTooltip: false, // Compact mode - no tooltips
+                        isActive: isActive,
+                      );
+                    } else {
+                      return Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.borderRadiusSmall,
+                          ),
+                          color: theme.colorScheme.surface,
+                          border: Border.all(
+                            color: theme.colorScheme.outline.withValues(
+                              alpha: 0.2,
+                            ),
+                            width: 1.0,
+                          ),
                         ),
-                      )
-                      .toList(),
+                        child: Icon(
+                          Icons.add,
+                          color: theme.colorScheme.outline.withValues(
+                            alpha: 0.3,
+                          ),
+                          size: 20,
+                        ),
+                      );
+                    }
+                  },
                 ),
               ),
             ),
-            Container(
-              width: 1,
-              height: 40,
-              color: theme.colorScheme.outline.withOpacity(0.3),
-              margin: const EdgeInsets.symmetric(horizontal: 8),
-            ),
           ],
-
-          // Available powerups
-          Expanded(
-            flex: 3,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(
-                AppConstants.maxPowerupsInInventory.clamp(0, 3),
-                (index) {
-                  if (index < availablePowerups.length) {
-                    final powerup = availablePowerups[index];
-                    // Check if this powerup type is currently active
-                    final isActive = activePowerups.any(
-                      (p) => p.type == powerup.type,
-                    );
-                    return PowerupButton(
-                      powerup: powerup,
-                      onTap: () => onPowerupTap(powerup.type),
-                      isEnabled:
-                          isGameActive && powerup.isAvailable && !isActive,
-                      showTooltip: false, // Compact mode - no tooltips
-                      isActive: isActive,
-                    );
-                  } else {
-                    return Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(
-                          AppConstants.borderRadiusSmall,
-                        ),
-                        color: theme.colorScheme.surface,
-                        border: Border.all(
-                          color: theme.colorScheme.outline.withOpacity(0.2),
-                          width: 1.0,
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.add,
-                        color: theme.colorScheme.outline.withOpacity(0.3),
-                        size: 20,
-                      ),
-                    );
-                  }
-                },
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

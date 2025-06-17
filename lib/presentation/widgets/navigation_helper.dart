@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/localization/localization_manager.dart';
 import '../../domain/entities/navigation_entity.dart';
 import '../providers/navigation_providers.dart';
 
@@ -9,10 +10,7 @@ import '../providers/navigation_providers.dart';
 class NavigationHelper extends ConsumerWidget {
   final Widget child;
 
-  const NavigationHelper({
-    super.key,
-    required this.child,
-  });
+  const NavigationHelper({super.key, required this.child});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -26,7 +24,9 @@ class NavigationHelper extends ConsumerWidget {
       name: AppRoutes.homeRouteName,
       clearStack: true,
     );
-    await ref.read(navigationProvider.notifier).navigateAndClearStack(navigation);
+    await ref
+        .read(navigationProvider.notifier)
+        .navigateAndClearStack(navigation);
   }
 
   /// Navigate to theme settings
@@ -57,7 +57,10 @@ class NavigationHelper extends ConsumerWidget {
   }
 
   /// Navigate to game screen
-  static Future<void> toGame(WidgetRef ref, {Map<String, dynamic>? arguments}) async {
+  static Future<void> toGame(
+    WidgetRef ref, {
+    Map<String, dynamic>? arguments,
+  }) async {
     final navigation = NavigationEntity(
       path: AppRoutes.game,
       name: AppRoutes.gameRouteName,
@@ -93,11 +96,11 @@ class NavigationHelper extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text(cancelText ?? 'Cancel'),
+            child: Text(cancelText ?? LocalizationManager.cancel(ref)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(confirmText ?? 'Confirm'),
+            child: Text(confirmText ?? LocalizationManager.confirm(ref)),
           ),
         ],
       ),
@@ -108,6 +111,7 @@ class NavigationHelper extends ConsumerWidget {
   /// Show loading dialog during navigation
   static Future<T?> showNavigationLoading<T>(
     BuildContext context,
+    WidgetRef ref,
     Future<T> navigationFuture, {
     String? loadingText,
   }) async {
@@ -129,12 +133,12 @@ class NavigationHelper extends ConsumerWidget {
     try {
       // Wait for navigation to complete
       final result = await navigationFuture;
-      
+
       // Close loading dialog
       if (context.mounted) {
         Navigator.of(context).pop();
       }
-      
+
       return result;
     } catch (e) {
       // Close loading dialog
@@ -161,12 +165,15 @@ class NavigationHelper extends ConsumerWidget {
         await showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text(errorTitle ?? 'Navigation Error'),
-            content: Text(errorMessage ?? 'Failed to navigate: $e'),
+            title: Text(errorTitle ?? LocalizationManager.navigationError(ref)),
+            content: Text(
+              errorMessage ??
+                  '${LocalizationManager.navigationFailed(ref)}: $e',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK'),
+                child: Text(LocalizationManager.ok(ref)),
               ),
             ],
           ),
@@ -192,14 +199,16 @@ extension NavigationExtension on WidgetRef {
   Future<void> toFontSettings() => NavigationHelper.toFontSettings(this);
 
   /// Navigate to language settings
-  Future<void> toLanguageSettings() => NavigationHelper.toLanguageSettings(this);
+  Future<void> toLanguageSettings() =>
+      NavigationHelper.toLanguageSettings(this);
 
   /// Navigate to game
-  Future<void> toGame({Map<String, dynamic>? arguments}) => 
+  Future<void> toGame({Map<String, dynamic>? arguments}) =>
       NavigationHelper.toGame(this, arguments: arguments);
 
   /// Navigate back
-  Future<void> goBack({dynamic result}) => NavigationHelper.back(this, result: result);
+  Future<void> goBack({dynamic result}) =>
+      NavigationHelper.back(this, result: result);
 
   /// Check if can navigate back
   bool get canGoBack => NavigationHelper.canGoBack(this);
@@ -220,7 +229,7 @@ mixin NavigationMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   Future<void> toLanguageSettings() => ref.toLanguageSettings();
 
   /// Navigate to game
-  Future<void> toGame({Map<String, dynamic>? arguments}) => 
+  Future<void> toGame({Map<String, dynamic>? arguments}) =>
       ref.toGame(arguments: arguments);
 
   /// Navigate back
@@ -236,11 +245,11 @@ mixin NavigationMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     String? confirmText,
     String? cancelText,
   }) => NavigationHelper.showNavigationConfirmation(
-        context,
-        ref,
-        title: title,
-        message: message,
-        confirmText: confirmText,
-        cancelText: cancelText,
-      );
+    context,
+    ref,
+    title: title,
+    message: message,
+    confirmText: confirmText,
+    cancelText: cancelText,
+  );
 }

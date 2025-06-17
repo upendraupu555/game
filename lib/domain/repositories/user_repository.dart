@@ -52,6 +52,12 @@ abstract class UserRepository {
   /// Resend email confirmation
   Future<void> resendEmailConfirmation(String email);
 
+  /// Reset password for user
+  Future<void> resetPassword(String email);
+
   /// Clear all user data
   Future<void> clearAllUserData();
+
+  /// Delete user account permanently (authenticated users only)
+  Future<void> deleteUserAccount();
 }

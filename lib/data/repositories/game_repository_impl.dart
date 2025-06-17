@@ -172,10 +172,18 @@ class GameRepositoryImpl implements GameRepository {
       emptyPositionsCount: emptyPositions.length,
     );
 
-    return currentState.setTileAt(
+    final newState = currentState.setTileAt(
       randomPosition.row,
       randomPosition.col,
       newTile,
+    );
+
+    // Preserve win state and check game over condition after adding tile
+    final isGameOver = this.isGameOver(newState);
+
+    return newState.copyWith(
+      hasWon: currentState.hasWon, // Preserve win state
+      isGameOver: isGameOver,
     );
   }
 

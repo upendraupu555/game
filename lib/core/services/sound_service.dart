@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import '../../domain/entities/sound_entity.dart';
 import '../logging/app_logger.dart';
+import '../constants/app_constants.dart';
 
 /// Core sound service for managing audio playback
 /// This service handles the low-level audio operations using audioplayers
@@ -20,6 +21,16 @@ class SoundService {
   Future<void> initialize() async {
     if (_isInitialized) return;
 
+    // TODO: Temporarily disabled sound system initialization
+    if (!AppConstants.enableSoundSystem) {
+      AppLogger.info(
+        'Sound system disabled - skipping initialization',
+        tag: 'SoundService',
+      );
+      _isInitialized = true; // Mark as initialized to prevent further attempts
+      return;
+    }
+
     try {
       AppLogger.info('Initializing sound service', tag: 'SoundService');
 
@@ -35,9 +46,16 @@ class SoundService {
       await _checkSystemAudioState();
 
       _isInitialized = true;
-      AppLogger.info('Sound service initialized successfully', tag: 'SoundService');
+      AppLogger.info(
+        'Sound service initialized successfully',
+        tag: 'SoundService',
+      );
     } catch (e) {
-      AppLogger.error('Failed to initialize sound service', tag: 'SoundService', error: e);
+      AppLogger.error(
+        'Failed to initialize sound service',
+        tag: 'SoundService',
+        error: e,
+      );
       rethrow;
     }
   }
@@ -61,25 +79,39 @@ class SoundService {
       _soundPaths.clear();
       _isInitialized = false;
 
-      AppLogger.info('Sound service disposed successfully', tag: 'SoundService');
+      AppLogger.info(
+        'Sound service disposed successfully',
+        tag: 'SoundService',
+      );
     } catch (e) {
-      AppLogger.error('Error disposing sound service', tag: 'SoundService', error: e);
+      AppLogger.error(
+        'Error disposing sound service',
+        tag: 'SoundService',
+        error: e,
+      );
     }
   }
 
   /// Play a sound effect
-  Future<void> playSound(SoundEventType soundType, {double volume = 1.0}) async {
+  Future<void> playSound(
+    SoundEventType soundType, {
+    double volume = 1.0,
+  }) async {
     if (!_isInitialized) {
       AppLogger.warning('Sound service not initialized', tag: 'SoundService');
       return;
     }
 
     if (_isSystemMuted || volume == 0.0) {
-      AppLogger.debug('Sound muted or volume is 0', tag: 'SoundService', data: {
-        'soundType': soundType.name,
-        'isSystemMuted': _isSystemMuted,
-        'volume': volume,
-      });
+      AppLogger.debug(
+        'Sound muted or volume is 0',
+        tag: 'SoundService',
+        data: {
+          'soundType': soundType.name,
+          'isSystemMuted': _isSystemMuted,
+          'volume': volume,
+        },
+      );
       return;
     }
 
@@ -88,9 +120,11 @@ class SoundService {
       final soundPath = _soundPaths[soundType];
 
       if (player == null || soundPath == null) {
-        AppLogger.warning('Sound not found', tag: 'SoundService', data: {
-          'soundType': soundType.name,
-        });
+        AppLogger.warning(
+          'Sound not found',
+          tag: 'SoundService',
+          data: {'soundType': soundType.name},
+        );
         return;
       }
 
@@ -103,13 +137,21 @@ class SoundService {
       // Play the sound
       await player.play(AssetSource(soundPath));
 
-      AppLogger.debug('Sound played', tag: 'SoundService', data: {
-        'soundType': soundType.name,
-        'volume': volume,
-        'soundPath': soundPath,
-      });
+      AppLogger.debug(
+        'Sound played',
+        tag: 'SoundService',
+        data: {
+          'soundType': soundType.name,
+          'volume': volume,
+          'soundPath': soundPath,
+        },
+      );
     } catch (e) {
-      AppLogger.error('Failed to play sound: ${soundType.name} at volume $volume', tag: 'SoundService', error: e);
+      AppLogger.error(
+        'Failed to play sound: ${soundType.name} at volume $volume',
+        tag: 'SoundService',
+        error: e,
+      );
     }
   }
 
@@ -131,12 +173,16 @@ class SoundService {
           // Preload by setting the source without playing
           preloadTasks.add(
             player.setSource(AssetSource(soundPath)).catchError((e) {
-              AppLogger.warning('Failed to preload sound', tag: 'SoundService', data: {
-                'soundType': soundType.name,
-                'soundPath': soundPath,
-                'error': e.toString(),
-              });
-            })
+              AppLogger.warning(
+                'Failed to preload sound',
+                tag: 'SoundService',
+                data: {
+                  'soundType': soundType.name,
+                  'soundPath': soundPath,
+                  'error': e.toString(),
+                },
+              );
+            }),
           );
         }
       }
@@ -144,7 +190,11 @@ class SoundService {
       await Future.wait(preloadTasks);
       AppLogger.info('Sound preloading completed', tag: 'SoundService');
     } catch (e) {
-      AppLogger.error('Error during sound preloading', tag: 'SoundService', error: e);
+      AppLogger.error(
+        'Error during sound preloading',
+        tag: 'SoundService',
+        error: e,
+      );
     }
   }
 
@@ -214,7 +264,10 @@ class SoundService {
       // or listen to system audio state changes
       _isSystemMuted = false;
     } catch (e) {
-      AppLogger.warning('Could not check system audio state: $e', tag: 'SoundService');
+      AppLogger.warning(
+        'Could not check system audio state: $e',
+        tag: 'SoundService',
+      );
       _isSystemMuted = false;
     }
   }

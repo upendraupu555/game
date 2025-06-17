@@ -15,12 +15,15 @@ class GameEntity {
   final List<PowerupEntity> availablePowerups;
   final List<PowerupEntity> activePowerups;
   final Set<PowerupType> usedPowerupTypes;
+  final Set<PowerupType>
+  offeredPowerupTypes; // Track powerups offered via inventory dialog
   final bool isTimeAttackMode;
   final int? timeLimit; // in seconds
   final DateTime? timeAttackStartTime;
   final int pausedTimeSeconds; // Total time spent paused
   final bool isScenicMode;
   final int? scenicBackgroundIndex; // Index of the current scenic background
+  final GameEntity? previousState; // For undo functionality
 
   const GameEntity({
     required this.board,
@@ -34,12 +37,14 @@ class GameEntity {
     required this.availablePowerups,
     required this.activePowerups,
     required this.usedPowerupTypes,
+    this.offeredPowerupTypes = const {},
     this.isTimeAttackMode = false,
     this.timeLimit,
     this.timeAttackStartTime,
     this.pausedTimeSeconds = 0,
     this.isScenicMode = false,
     this.scenicBackgroundIndex,
+    this.previousState,
   });
 
   /// Create a new game with empty board
@@ -56,6 +61,7 @@ class GameEntity {
       availablePowerups: const [],
       activePowerups: const [],
       usedPowerupTypes: const {},
+      offeredPowerupTypes: const {},
     );
   }
 
@@ -74,6 +80,7 @@ class GameEntity {
       availablePowerups: const [],
       activePowerups: const [],
       usedPowerupTypes: const {},
+      offeredPowerupTypes: const {},
       isTimeAttackMode: true,
       timeLimit: timeLimitSeconds,
       timeAttackStartTime: now,
@@ -94,6 +101,7 @@ class GameEntity {
       availablePowerups: const [],
       activePowerups: const [],
       usedPowerupTypes: const {},
+      offeredPowerupTypes: const {},
       isScenicMode: true,
       scenicBackgroundIndex: backgroundIndex,
     );
@@ -112,12 +120,14 @@ class GameEntity {
     List<PowerupEntity>? availablePowerups,
     List<PowerupEntity>? activePowerups,
     Set<PowerupType>? usedPowerupTypes,
+    Set<PowerupType>? offeredPowerupTypes,
     bool? isTimeAttackMode,
     int? timeLimit,
     DateTime? timeAttackStartTime,
     int? pausedTimeSeconds,
     bool? isScenicMode,
     int? scenicBackgroundIndex,
+    GameEntity? previousState,
   }) {
     return GameEntity(
       board: board ?? this.board,
@@ -131,6 +141,7 @@ class GameEntity {
       availablePowerups: availablePowerups ?? this.availablePowerups,
       activePowerups: activePowerups ?? this.activePowerups,
       usedPowerupTypes: usedPowerupTypes ?? this.usedPowerupTypes,
+      offeredPowerupTypes: offeredPowerupTypes ?? this.offeredPowerupTypes,
       isTimeAttackMode: isTimeAttackMode ?? this.isTimeAttackMode,
       timeLimit: timeLimit ?? this.timeLimit,
       timeAttackStartTime: timeAttackStartTime ?? this.timeAttackStartTime,
@@ -138,6 +149,7 @@ class GameEntity {
       isScenicMode: isScenicMode ?? this.isScenicMode,
       scenicBackgroundIndex:
           scenicBackgroundIndex ?? this.scenicBackgroundIndex,
+      previousState: previousState ?? this.previousState,
     );
   }
 
@@ -262,7 +274,8 @@ class GameEntity {
         canUndo == other.canUndo &&
         _listEquals(availablePowerups, other.availablePowerups) &&
         _listEquals(activePowerups, other.activePowerups) &&
-        _setEquals(usedPowerupTypes, other.usedPowerupTypes);
+        _setEquals(usedPowerupTypes, other.usedPowerupTypes) &&
+        _setEquals(offeredPowerupTypes, other.offeredPowerupTypes);
   }
 
   @override
@@ -302,14 +315,24 @@ class GameEntity {
   int get totalPowerupsUnlocked {
     final usedCount = usedPowerupTypes.length;
     final availableCount = availablePowerups.length;
-    return usedCount + availableCount;
+    final offeredCount = offeredPowerupTypes.length;
+    return usedCount + availableCount + offeredCount;
+  }
+
+  /// Mark a powerup as offered via inventory management dialog
+  GameEntity markPowerupAsOffered(PowerupType powerupType) {
+    final newOfferedPowerupTypes = Set<PowerupType>.from(offeredPowerupTypes)
+      ..add(powerupType);
+    return copyWith(offeredPowerupTypes: newOfferedPowerupTypes);
+  }
+
+  /// Check if a powerup has been offered via inventory management dialog
+  bool isPowerupOffered(PowerupType powerupType) {
+    return offeredPowerupTypes.contains(powerupType);
   }
 
   /// Check if tile freeze powerup is active
   bool get isTileFreezeActive => isPowerupActive(PowerupType.tileFreeze);
-
-  /// Check if merge boost powerup is active
-  bool get isMergeBoostActive => isPowerupActive(PowerupType.mergeBoost);
 
   /// Check if blocker shield powerup is active
   bool get isBlockerShieldActive => isPowerupActive(PowerupType.blockerShield);
@@ -328,8 +351,9 @@ class GameEntity {
   /// Add a new powerup to available powerups
   GameEntity addPowerup(PowerupEntity powerup) {
     if (availablePowerups.length >= 3) return this; // Max 3 powerups
-    if (availablePowerups.any((p) => p.type == powerup.type))
+    if (availablePowerups.any((p) => p.type == powerup.type)) {
       return this; // No duplicates
+    }
 
     final newAvailablePowerups = List<PowerupEntity>.from(availablePowerups)
       ..add(powerup);

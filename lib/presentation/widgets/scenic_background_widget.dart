@@ -1,4 +1,4 @@
-import 'dart:ui';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
@@ -47,30 +47,34 @@ class ScenicBackgroundWidget extends ConsumerWidget {
         '${AppConstants.scenicBackgroundFileExtension}';
 
     return Positioned.fill(
-      child: Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage(assetPath),
-            fit: BoxFit.cover,
-            opacity: isScenicMode
-                ? AppConstants.scenicBackgroundOpacity
-                : opacity,
-            onError: (error, stackTrace) {
-              AppLogger.error(
-                'Failed to load scenic background: $assetPath',
-                error: error,
-                stackTrace: stackTrace,
-              );
-            },
+      child: RepaintBoundary(
+        child: Container(
+          decoration: BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage(assetPath),
+              fit: BoxFit.cover,
+              opacity: isScenicMode
+                  ? AppConstants.scenicBackgroundOpacity
+                  : opacity,
+              onError: (error, stackTrace) {
+                if (AppConstants.enablePerformanceLogging) {
+                  AppLogger.error(
+                    'Failed to load scenic background: $assetPath',
+                    error: error,
+                    stackTrace: stackTrace,
+                  );
+                }
+              },
+            ),
           ),
+          // Remove blur effects for scenic mode to show crisp images
+          child: (!isScenicMode && blur > 0)
+              ? BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                  child: Container(color: Colors.transparent),
+                )
+              : null,
         ),
-        // Remove blur effects for scenic mode to show crisp images
-        child: (!isScenicMode && blur > 0)
-            ? BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-                child: Container(color: Colors.transparent),
-              )
-            : null,
       ),
     );
   }

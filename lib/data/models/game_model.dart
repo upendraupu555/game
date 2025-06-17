@@ -235,7 +235,7 @@ class GameModel {
   }
 }
 
-/// Data model for game statistics
+/// Data model for game statistics with comprehensive metrics
 class GameStatisticsModel {
   final int gamesPlayed;
   final int gamesWon;
@@ -244,6 +244,24 @@ class GameStatisticsModel {
   final int totalPlayTimeSeconds;
   final String lastPlayed;
 
+  // Game mode performance
+  final Map<String, int> gameModeStats;
+  final Map<String, int> gameModeWins;
+  final Map<String, int> gameModeBestScores;
+
+  // Powerup statistics
+  final Map<String, int> powerupUsageCount;
+  final Map<String, int> powerupSuccessCount;
+
+  // Tile achievements
+  final int highestTileValue;
+  final int total2048Achievements;
+  final Map<String, int>
+  tileValueAchievements; // String keys for JSON compatibility
+
+  // Recent performance (last 10 games)
+  final List<Map<String, dynamic>> recentGames;
+
   const GameStatisticsModel({
     required this.gamesPlayed,
     required this.gamesWon,
@@ -251,6 +269,15 @@ class GameStatisticsModel {
     required this.totalScore,
     required this.totalPlayTimeSeconds,
     required this.lastPlayed,
+    this.gameModeStats = const {},
+    this.gameModeWins = const {},
+    this.gameModeBestScores = const {},
+    this.powerupUsageCount = const {},
+    this.powerupSuccessCount = const {},
+    this.highestTileValue = 0,
+    this.total2048Achievements = 0,
+    this.tileValueAchievements = const {},
+    this.recentGames = const [],
   });
 
   /// Convert from domain entity
@@ -262,6 +289,17 @@ class GameStatisticsModel {
       totalScore: entity.totalScore,
       totalPlayTimeSeconds: entity.totalPlayTime.inSeconds,
       lastPlayed: entity.lastPlayed.toIso8601String(),
+      gameModeStats: entity.gameModeStats,
+      gameModeWins: entity.gameModeWins,
+      gameModeBestScores: entity.gameModeBestScores,
+      powerupUsageCount: entity.powerupUsageCount,
+      powerupSuccessCount: entity.powerupSuccessCount,
+      highestTileValue: entity.highestTileValue,
+      total2048Achievements: entity.total2048Achievements,
+      tileValueAchievements: entity.tileValueAchievements.map(
+        (key, value) => MapEntry(key.toString(), value),
+      ),
+      recentGames: entity.recentGames.map((game) => game.toJson()).toList(),
     );
   }
 
@@ -274,6 +312,19 @@ class GameStatisticsModel {
       totalScore: totalScore,
       totalPlayTime: Duration(seconds: totalPlayTimeSeconds),
       lastPlayed: DateTime.parse(lastPlayed),
+      gameModeStats: gameModeStats,
+      gameModeWins: gameModeWins,
+      gameModeBestScores: gameModeBestScores,
+      powerupUsageCount: powerupUsageCount,
+      powerupSuccessCount: powerupSuccessCount,
+      highestTileValue: highestTileValue,
+      total2048Achievements: total2048Achievements,
+      tileValueAchievements: tileValueAchievements.map(
+        (key, value) => MapEntry(int.parse(key), value),
+      ),
+      recentGames: recentGames
+          .map((json) => GamePerformance.fromJson(json))
+          .toList(),
     );
   }
 
@@ -286,6 +337,25 @@ class GameStatisticsModel {
       totalScore: json['totalScore'] as int,
       totalPlayTimeSeconds: json['totalPlayTimeSeconds'] as int,
       lastPlayed: json['lastPlayed'] as String,
+      gameModeStats: Map<String, int>.from(json['gameModeStats'] ?? {}),
+      gameModeWins: Map<String, int>.from(json['gameModeWins'] ?? {}),
+      gameModeBestScores: Map<String, int>.from(
+        json['gameModeBestScores'] ?? {},
+      ),
+      powerupUsageCount: Map<String, int>.from(json['powerupUsageCount'] ?? {}),
+      powerupSuccessCount: Map<String, int>.from(
+        json['powerupSuccessCount'] ?? {},
+      ),
+      highestTileValue: json['highestTileValue'] as int? ?? 0,
+      total2048Achievements: json['total2048Achievements'] as int? ?? 0,
+      tileValueAchievements: Map<String, int>.from(
+        json['tileValueAchievements'] ?? {},
+      ),
+      recentGames:
+          (json['recentGames'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          [],
     );
   }
 
@@ -298,6 +368,15 @@ class GameStatisticsModel {
       'totalScore': totalScore,
       'totalPlayTimeSeconds': totalPlayTimeSeconds,
       'lastPlayed': lastPlayed,
+      'gameModeStats': gameModeStats,
+      'gameModeWins': gameModeWins,
+      'gameModeBestScores': gameModeBestScores,
+      'powerupUsageCount': powerupUsageCount,
+      'powerupSuccessCount': powerupSuccessCount,
+      'highestTileValue': highestTileValue,
+      'total2048Achievements': total2048Achievements,
+      'tileValueAchievements': tileValueAchievements,
+      'recentGames': recentGames,
     };
   }
 

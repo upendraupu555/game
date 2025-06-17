@@ -11,13 +11,11 @@ import '../providers/font_providers.dart';
 class PauseMenuOverlay extends ConsumerWidget {
   final VoidCallback onResume;
   final VoidCallback onNewGame;
-  final VoidCallback onShowStatistics;
 
   const PauseMenuOverlay({
     super.key,
     required this.onResume,
     required this.onNewGame,
-    required this.onShowStatistics,
   });
 
   @override
@@ -80,13 +78,26 @@ class PauseMenuOverlay extends ConsumerWidget {
               const SizedBox(height: AppConstants.paddingMedium),
 
               _PauseMenuButton(
+                icon: Icons.help_outline,
+                label: LocalizationManager.howToPlay(ref),
+                color: Colors.purple,
+                fontFamily: currentFontFamily,
+                onPressed: () {
+                  Navigator.of(context).pop(); // Close pause menu
+                  NavigationService.pushNamed(AppRoutes.help);
+                },
+              ),
+
+              const SizedBox(height: AppConstants.paddingMedium),
+
+              _PauseMenuButton(
                 icon: Icons.settings,
                 label: LocalizationManager.navSettings(ref),
                 color: Colors.grey.shade600,
                 fontFamily: currentFontFamily,
                 onPressed: () {
                   Navigator.of(context).pop(); // Close pause menu
-                  NavigationService.pushNamed(AppRoutes.themeSettings);
+                  NavigationService.pushNamed(AppRoutes.settings);
                 },
               ),
 
@@ -99,7 +110,10 @@ class PauseMenuOverlay extends ConsumerWidget {
                 fontFamily: currentFontFamily,
                 onPressed: () {
                   Navigator.of(context).pop(); // Close pause menu
-                  onShowStatistics();
+                  NavigationService.pushNamed(
+                    AppRoutes.leaderboard,
+                    arguments: {'initialTab': 1}, // Statistics tab index
+                  );
                 },
               ),
 

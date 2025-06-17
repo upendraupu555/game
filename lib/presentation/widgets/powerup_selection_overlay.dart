@@ -5,6 +5,9 @@ import '../../core/constants/app_constants.dart';
 import '../providers/powerup_selection_providers.dart';
 import '../providers/game_providers.dart';
 
+/// Provider for the game board's global key to track its position
+final gameBoardKeyProvider = Provider<GlobalKey>((ref) => GlobalKey());
+
 /// Overlay widget that appears when in powerup selection mode
 class PowerupSelectionOverlay extends ConsumerWidget {
   const PowerupSelectionOverlay({super.key});
@@ -18,36 +21,117 @@ class PowerupSelectionOverlay extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    // Get safe area dimensions for proper positioning
-    final safeAreaTop = MediaQuery.of(context).padding.top;
-    final safeAreaBottom = MediaQuery.of(context).padding.bottom;
-
-    return Positioned.fill(
-      child: IgnorePointer(
-        ignoring: false, // Allow interaction with overlay elements
-        child: Stack(
-          children: [
-            // Top instruction banner - positioned at the safe area top
-            Positioned(
-              top: safeAreaTop + AppConstants.paddingMedium,
-              left: AppConstants.paddingMedium,
-              right: AppConstants.paddingMedium,
-              child: _buildInstructionBanner(context, ref, selectionState),
-            ),
-
-            // Cancel button - positioned at the bottom with safe area consideration
-            Positioned(
-              bottom:
-                  safeAreaBottom +
-                  AppConstants.paddingLarge +
-                  60, // Account for banner ad height
-              left: AppConstants.paddingLarge,
-              right: AppConstants.paddingLarge,
-              child: _buildCancelButton(context, ref),
-            ),
-          ],
+    // Return positioned content directly since this widget is already inside a Stack
+    return Positioned(
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
+      child: RepaintBoundary(
+        child: IgnorePointer(
+          ignoring: false, // Allow interaction with overlay elements
+          child: _DynamicPositionedOverlay(selectionState: selectionState),
         ),
       ),
+    );
+  }
+}
+
+/// Widget that dynamically positions overlay elements based on actual game board position
+class _DynamicPositionedOverlay extends ConsumerStatefulWidget {
+  final PowerupSelectionState selectionState;
+
+  const _DynamicPositionedOverlay({required this.selectionState});
+
+  @override
+  ConsumerState<_DynamicPositionedOverlay> createState() =>
+      _DynamicPositionedOverlayState();
+}
+
+class _DynamicPositionedOverlayState
+    extends ConsumerState<_DynamicPositionedOverlay> {
+  Rect? _gameBoardRect;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateGameBoardPosition();
+    });
+  }
+
+  @override
+  void didUpdateWidget(_DynamicPositionedOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateGameBoardPosition();
+    });
+  }
+
+  void _updateGameBoardPosition() {
+    final gameBoardKey = ref.read(gameBoardKeyProvider);
+    final renderBox =
+        gameBoardKey.currentContext?.findRenderObject() as RenderBox?;
+
+    if (renderBox != null && mounted) {
+      final position = renderBox.localToGlobal(Offset.zero);
+      final size = renderBox.size;
+
+      setState(() {
+        _gameBoardRect = Rect.fromLTWH(
+          position.dx,
+          position.dy,
+          size.width,
+          size.height,
+        );
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final safeAreaTop = 0;
+    //MediaQuery.of(context).padding.top;
+    final safeAreaBottom = 0;
+    //  MediaQuery.of(context).padding.bottom;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Calculate dynamic positions based on game board location
+    // final instructionTop = _gameBoardRect != null
+    //     ? (_gameBoardRect!.top - 120).clamp(
+    //         safeAreaTop + AppConstants.paddingMedium,
+    //         _gameBoardRect!.top - 80,
+    //       )
+    //     : safeAreaTop + AppConstants.paddingMedium;
+
+    // final cancelBottom = _gameBoardRect != null
+    //     ? (screenHeight - _gameBoardRect!.bottom - 80).clamp(
+    //         safeAreaBottom + AppConstants.paddingLarge,
+    //         screenHeight - _gameBoardRect!.bottom - 60,
+    //       )
+    //     : safeAreaBottom + AppConstants.paddingLarge + 60;
+
+    final instructionTop = 0.0;
+    final cancelBottom = 150.0;
+
+    return Stack(
+      children: [
+        // Top instruction banner - positioned above the game board
+        Positioned(
+          top: instructionTop,
+          left: AppConstants.paddingMedium,
+          right: AppConstants.paddingMedium,
+          child: _buildInstructionBanner(context, ref, widget.selectionState),
+        ),
+
+        // Cancel button - positioned below the game board
+        Positioned(
+          bottom: cancelBottom,
+          left: AppConstants.paddingLarge,
+          right: AppConstants.paddingLarge,
+          child: _buildCancelButton(context, ref),
+        ),
+      ],
     );
   }
 
@@ -168,20 +252,11 @@ class PowerupSelectionOverlay extends ConsumerWidget {
   }
 }
 
-/// Widget that provides visual feedback for tiles during selection mode
-class TileSelectionHighlight extends ConsumerWidget {
-  final int row;
-  final int col;
-  final Widget child;
-  final bool hasTile; // Whether this position has a tile entity
+/// Widget that shows row/column indicators during selection mode
+class SelectionModeIndicators extends ConsumerWidget {
+  final int boardSize;
 
-  const TileSelectionHighlight({
-    super.key,
-    required this.row,
-    required this.col,
-    required this.child,
-    this.hasTile = false,
-  });
+  const SelectionModeIndicators({super.key, required this.boardSize});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -189,33 +264,90 @@ class TileSelectionHighlight extends ConsumerWidget {
 
     if (!selectionState.isSelectionMode ||
         selectionState.activePowerupType == null) {
-      return child;
+      return const SizedBox.shrink();
     }
 
     final powerupType = selectionState.activePowerupType!;
-    final shouldHighlight = _shouldHighlightTile(powerupType, row, col);
 
-    if (!shouldHighlight) {
-      return child;
-    }
+    // Create a grid overlay for tile selection highlighting
+    return _buildSelectionGrid(powerupType, ref);
+  }
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: _getPowerupColor(powerupType), width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: _getPowerupColor(powerupType).withValues(alpha: 0.3),
-            blurRadius: 8.0,
-            spreadRadius: 1.0,
-          ),
+  Widget _buildSelectionGrid(PowerupType powerupType, WidgetRef ref) {
+    // Use precise positioning to match the actual game board layout
+    // These constants match the SlidingGameBoard positioning
+    const double boardSize = 320.0;
+    const double tileSize = 56.0;
+    const double tileSpacing = 6.0;
+    const double gridWidth = 5 * tileSize + 6 * tileSpacing;
+    const double gridHeight = 5 * tileSize + 6 * tileSpacing;
+    const double offsetX = (boardSize - gridWidth) / 2;
+    const double offsetY = (boardSize - gridHeight) / 2;
+
+    return SizedBox(
+      width: boardSize,
+      height: boardSize,
+      child: Stack(
+        children: [
+          for (int row = 0; row < 5; row++)
+            for (int col = 0; col < 5; col++)
+              Positioned(
+                left: offsetX + tileSpacing + col * (tileSize + tileSpacing),
+                top: offsetY + tileSpacing + row * (tileSize + tileSpacing),
+                width: tileSize,
+                height: tileSize,
+                child: _buildSelectionTile(powerupType, row, col, ref),
+              ),
         ],
       ),
-      child: child,
     );
   }
 
-  bool _shouldHighlightTile(PowerupType powerupType, int row, int col) {
+  Widget _buildSelectionTile(
+    PowerupType powerupType,
+    int row,
+    int col,
+    WidgetRef ref,
+  ) {
+    final shouldHighlight = _shouldHighlightTile(powerupType, row, col, ref);
+
+    if (!shouldHighlight) {
+      return const SizedBox.shrink();
+    }
+
+    return GestureDetector(
+      onTap: () {
+        ref.read(gameProvider.notifier).selectTileForPowerup(row, col);
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: _getPowerupColor(powerupType), width: 2),
+          color: _getPowerupColor(powerupType).withValues(alpha: 0.2),
+          boxShadow: [
+            BoxShadow(
+              color: _getPowerupColor(powerupType).withValues(alpha: 0.3),
+              blurRadius: 8.0,
+              spreadRadius: 1.0,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _shouldHighlightTile(
+    PowerupType powerupType,
+    int row,
+    int col,
+    WidgetRef ref,
+  ) {
+    final gameState = ref.watch(gameProvider).value;
+    if (gameState == null) return false;
+
+    // Check if there's a tile at this position
+    final hasTile = gameState.board[row][col] != null;
+
     switch (powerupType) {
       case PowerupType.tileDestroyer:
         // Only highlight tiles that actually have a tile entity
@@ -240,76 +372,5 @@ class TileSelectionHighlight extends ConsumerWidget {
       default:
         return const Color(0xFF2196F3); // Blue
     }
-  }
-}
-
-/// Widget that shows row/column indicators during selection mode
-class SelectionModeIndicators extends ConsumerWidget {
-  final int boardSize;
-
-  const SelectionModeIndicators({super.key, required this.boardSize});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selectionState = ref.watch(powerupSelectionProvider);
-
-    if (!selectionState.isSelectionMode ||
-        selectionState.activePowerupType == null) {
-      return const SizedBox.shrink();
-    }
-
-    final powerupType = selectionState.activePowerupType!;
-
-    if (powerupType == PowerupType.rowClear) {
-      return _buildRowIndicators();
-    } else if (powerupType == PowerupType.columnClear) {
-      return _buildColumnIndicators();
-    }
-
-    return const SizedBox.shrink();
-  }
-
-  Widget _buildRowIndicators() {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: Column(
-          children: List.generate(boardSize, (index) {
-            return Expanded(
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 1),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: const Color(0xFFFF9800).withValues(alpha: 0.5),
-                    width: 1,
-                  ),
-                ),
-              ),
-            );
-          }),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildColumnIndicators() {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: Row(
-          children: List.generate(boardSize, (index) {
-            return Expanded(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 1),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: const Color(0xFFFF5722).withValues(alpha: 0.5),
-                    width: 1,
-                  ),
-                ),
-              ),
-            );
-          }),
-        ),
-      ),
-    );
   }
 }
