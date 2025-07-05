@@ -122,17 +122,17 @@ class HomeScreen extends ConsumerWidget {
 
                     const SizedBox(height: AppConstants.paddingLarge),
 
-                    // Stats card
-                    if (bestScore > 0) ...[
-                      _buildStatsCard(
-                        context,
-                        ref,
-                        bestScore,
-                        currentPrimaryColor,
-                        currentFontFamily,
-                      ),
-                      const SizedBox(height: AppConstants.paddingMedium),
-                    ],
+                    // // Stats card
+                    // if (bestScore > 0) ...[
+                    //   _buildStatsCard(
+                    //     context,
+                    //     ref,
+                    //     bestScore,
+                    //     currentPrimaryColor,
+                    //     currentFontFamily,
+                    //   ),
+                    //   const SizedBox(height: AppConstants.paddingMedium),
+                    // ],
 
                     // Action cards grid
                     _buildActionCardsGrid(

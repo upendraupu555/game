@@ -144,6 +144,7 @@ class _MyAppState extends ConsumerState<MyApp> {
                   navigatorKey: NavigationService.navigatorKey,
                   onGenerateRoute: NavigationService.generateRoute,
                   initialRoute: AppRoutes.home,
+                  debugShowCheckedModeBanner: false,
                 ),
               ),
             );

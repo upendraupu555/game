@@ -146,6 +146,35 @@ class PowerupInventoryNotifier extends StateNotifier<PowerupInventoryState> {
       final newPowerup = PowerupEntity.create(newPowerupType);
       updatedPowerups.add(newPowerup);
 
+      // Add the new powerup
+
+      // Clear the offered status for this powerup since it's now successfully added
+      final updatedOfferedPowerups = Set<PowerupType>.from(
+        gameState.offeredPowerupTypes,
+      )..remove(newPowerupType);
+
+      final newState = gameState.copyWith(
+        availablePowerups: updatedPowerups,
+        offeredPowerupTypes: updatedOfferedPowerups,
+      );
+
+      // state = AsyncValue.data(newState);
+      // await saveGame();
+
+      // Show notification for the new powerup
+      _ref
+          .read(powerupNotificationProvider.notifier)
+          .showNewPowerup(newPowerupType);
+
+      AppLogger.info(
+        '🔄 Powerup replaced successfully',
+        tag: 'GameNotifier',
+        data: {
+          'replacedPowerup': powerupTypeToReplace.name,
+          'newPowerup': newPowerupType.name,
+        },
+      );
+
       // This would need to be handled by the game provider
       // For now, we'll just log the action
       AppLogger.info(

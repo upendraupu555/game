@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../config/app_config.dart';
 
 /// Application-wide constants following clean architecture principles
@@ -458,9 +460,12 @@ class AppConstants {
   // ==================== ADVERTISEMENT CONSTANTS ====================
 
   // Production ad unit IDs
-  static const String bannerAdUnitId = 'ca-app-pub-2404185391574038/2009745305';
-  static const String interstitialAdUnitId =
-      'ca-app-pub-2404185391574038/7085385116';
+  static final String bannerAdUnitId = isAndroid
+      ? 'ca-app-pub-2404185391574038/2009745305'
+      : 'ca-app-pub-2404185391574038/8809372197';
+  static String interstitialAdUnitId = isAndroid
+      ? 'ca-app-pub-2404185391574038/7085385116'
+      : 'ca-app-pub-2404185391574038/9167932015';
 
   // Test ad unit IDs (for development/testing)
   static const String testBannerAdUnitId =
@@ -536,6 +541,9 @@ class AppConstants {
   static const Duration paymentTimeout = Duration(minutes: 5);
   static const int maxPaymentRetries = 3;
   static const Duration paymentRetryDelay = Duration(seconds: 3);
+
+  static bool get isAndroid => Platform.isAndroid;
+  static bool get isIOS => Platform.isIOS;
 }
 
 /// Route constants for navigation

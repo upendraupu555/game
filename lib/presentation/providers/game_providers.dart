@@ -979,7 +979,7 @@ class GameNotifier extends StateNotifier<AsyncValue<GameEntity>> {
 
       final newState = currentState.copyWith(
         availablePowerups: updatedPowerups,
-        offeredPowerupTypes: updatedOfferedPowerups,
+        // offeredPowerupTypes: updatedOfferedPowerups,
       );
 
       state = AsyncValue.data(newState);
